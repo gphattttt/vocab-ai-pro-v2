@@ -2,6 +2,12 @@
 include 'db.php';
 session_start();
 
+// --- NEW FIX: Redirect already logged-in users to the dashboard ---
+if (isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
 $error = "";
 
 // --- 1. TRADITIONAL LOGIN LOGIC ---
@@ -16,8 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
 
     if ($user = $result->fetch_assoc()) {
         if (password_verify($password, $user['password'])) {
+            
+            // --- SECURITY UPGRADE: Prevent Session Fixation Attacks ---
+            session_regenerate_id(true);
+            
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $username;
+            
+            $stmt->close();
             header("Location: index.php");
             exit();
         } else {
@@ -25,6 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
         }
     } else {
         $error = "User not found. Want to register?";
+    }
+    
+    if (isset($stmt)) {
+        $stmt->close();
     }
 }
 ?>
@@ -47,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
         body { 
             font-family: 'Inter', sans-serif; background: var(--bg); 
             display: flex; align-items: center; justify-content: center; 
-            min-height: 100vh; margin: 0; 
+            min-height: 100vh; margin: 0;
         }
 
         @keyframes springIn {
@@ -117,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
 
         <div class="google-btn-wrapper">
             <div id="g_id_onload"
-                 data-client_id="75314981645-jkjcti4hh2rf0vkubcnb1h6nca8h2a2i.apps.googleusercontent.com"
+                 data-client_id="YOUR_CLIENT_ID"
                  data-context="signin"
                  data-ux_mode="redirect"
                  data-login_uri="https://study4ever.site/google-callback.php"

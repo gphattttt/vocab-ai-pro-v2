@@ -1,3 +1,12 @@
+<?php
+session_start();
+
+// --- NEW FIX: Kick logged-out users back to the login page ---
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -172,7 +181,6 @@
 
             extractedWords = await res.json();
             renderResults();
-            
         } catch (e) {
             if (e.name === 'AbortError') {
                 showError("Request timed out. The essay might be too long.");
@@ -197,7 +205,7 @@
         
         list.innerHTML = "";
         document.getElementById('resultCount').innerText = `${extractedWords.length} Intelligent Match(es)`;
-        
+
         extractedWords.forEach((w, index) => {
             list.innerHTML += `
                 <div class="result-item" style="animation-delay: ${index * 0.05}s">
@@ -229,7 +237,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ words: extractedWords })
             });
-            
+
             const result = await res.json();
             if (result.success) {
                 btn.innerText = `Added ${result.count} Words ✓`;

@@ -1,0 +1,17 @@
+<?php
+$host = "localhost";
+$user = "root";     // Default XAMPP username
+$pass = "ebedenema123.";         // Default XAMPP password is empty
+$dbname = "vocab_app";
+
+// Create connection
+$conn = new mysqli($host, $user, $pass, $dbname);
+
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Ensure Vietnamese characters work
+$conn->set_charset("utf8mb4");
+?>
