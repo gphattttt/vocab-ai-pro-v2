@@ -1,0 +1,150 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
+import json
+import re
+
+app = Flask(__name__)
+CORS(app)
+
+# --- CẤU HÌNH ---
+# Thay thế bằng OpenRouter API Key thực tế của bạn
+OPENROUTER_API_KEY = "YOUR_SECRET_KEY" 
+MODEL_NAME = "google/gemini-2.5-flash-lite"
+
+def clean_json_response(raw_text):
+    """Làm sạch đầu ra của AI để đảm bảo là JSON hợp lệ."""
+    try:
+        clean_text = re.sub(r'```json', '', raw_text)
+        clean_text = re.sub(r'```', '', clean_text)
+        match = re.search(r'[\{\[].*[\}\]]', clean_text, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+            json_str = json_str.replace('“', '"').replace('”', '"').replace('’', "'")
+            return json.loads(json_str)
+        return None
+    except Exception as e:
+        print(f"Lỗi phân tách JSON: {e}")
+        return None
+
+def call_openrouter(system_prompt, user_prompt):
+    """Thực hiện gọi API OpenRouter."""
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost",
+                "X-Title": "VocabAI_Pro"
+            },
+            data=json.dumps({
+                "model": MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "temperature": 0.1, 
+                "top_p": 0.9
+            }),
+            timeout=20 
+        )
+        data = response.json()
+        if 'choices' in data:
+            raw_content = data['choices'][0]['message']['content']
+            return clean_json_response(raw_content)
+        return None
+    except Exception as e:
+        print(f"Lỗi mạng: {e}")
+        return None
+
+# --- ENDPOINT 1: TRA TỪ (Dùng trong index.php) ---
+@app.route('/get-vocab', methods=['GET'])
+def get_vocab():
+    word = request.args.get('word')
+    if not word:
+        return jsonify({"error": "Không có từ nào được cung cấp"}), 400
+
+    system_prompt = "Bạn là một Dictionary API chuyên nghiệp. Chỉ trả về JSON thô. Không có văn bản hội thoại."
+    user_prompt = f"""
+    Phân tích từ: "{word}".
+    Định dạng JSON:
+    {{
+      "word": "{word}",
+      "ipa": "phiên âm",
+      "word_form": "noun/verb/adj",
+      "level": "Chọn 1 mức CEFR: A1, A2, B1, B2, C1, C2",
+      "definition_en": "định nghĩa tiếng Anh ngắn gọn",
+      "definition_vi": "dịch tiếng Việt",
+      "example_sentence": "ví dụ sử dụng tự nhiên",
+      "synonyms": "từ đồng nghĩa, cách nhau bằng dấu phẩy",
+      "antonyms": "từ trái nghĩa, cách nhau bằng dấu phẩy"
+    }}
+    """
+    result = call_openrouter(system_prompt, user_prompt)
+    if result:
+        return jsonify(result)
+    return jsonify({"error": "Không thể tạo dữ liệu từ vựng"}), 500
+
+# --- ENDPOINT 2: TẠO CÂU HỎI QUIZ (Dùng trong quiz.php) ---
+@app.route('/quiz-sentence', methods=['GET'])
+def quiz_sentence():
+    word = request.args.get('word')
+    if not word:
+        return jsonify({"error": "Không có từ nào được cung cấp"}), 400
+
+    # Tối ưu hóa System Prompt để đảm bảo từ khóa không bao giờ xuất hiện
+    system_prompt = (
+        "Bạn là một chuyên gia tạo câu hỏi trắc nghiệm tiếng Anh. "
+        "Nhiệm vụ của bạn là tạo một câu ngữ cảnh mà trong đó từ được yêu cầu phải BIẾN MẤT. "
+        "BẮT BUỘC: Không được để từ khóa hoặc bất kỳ biến thể nào của nó (số nhiều, thì quá khứ...) xuất hiện trong câu. "
+        "BẮT BUỘC: Sử dụng đúng 5 dấu gạch dưới '_____' để thay thế từ đó. "
+        "Chỉ trả về JSON thô."
+    )
+    
+    user_prompt = f"Tạo một câu ngữ cảnh cho từ '{word}'. Nhớ ẩn từ '{word}' bằng _____. Trả về JSON: {{\"sentence\": \"...\"}}"
+
+    result = call_openrouter(system_prompt, user_prompt)
+    if result:
+        return jsonify(result)
+    # Câu dự phòng nếu AI lỗi
+    return jsonify({"sentence": f"Dùng từ đúng để điền vào chỗ trống: The word _____ means {word}."}), 200
+
+# --- ENDPOINT 3: TRÍCH XUẤT TỪ VỰNG TỪ BÀI LUẬN (Dùng trong essay_extract.php) ---
+@app.route('/extract-vocab', methods=['POST'])
+def extract_vocab():
+    data = request.json
+    essay = data.get('essay', '')
+    requirement = data.get('requirement', 'C1 level words')
+    
+    if not essay:
+        return jsonify({"error": "Không có bài luận"}), 400
+
+    system_prompt = "Bạn là chuyên gia phân tích ngôn ngữ. Chỉ trả về mảng JSON. Không có văn bản hội thoại."
+    user_prompt = f"""
+    Phân tích bài luận sau và trích xuất các từ khớp với yêu cầu: "{requirement}".
+    Bài luận: "{essay}"
+    Trả về một mảng JSON các đối tượng:
+    [
+      {{
+        "word": "từ",
+        "ipa": "phiên âm",
+        "word_form": "loại từ",
+        "level": "Cấp độ CEFR",
+        "definition_en": "định nghĩa tiếng Anh",
+        "definition_vi": "dịch tiếng Việt",
+        "example_sentence": "câu gốc chứa từ đó trong bài luận",
+        "suggested_category": "Chủ đề (VD: Kinh tế, Khoa học)",
+        "synonyms": "đồng nghĩa",
+        "antonyms": "trái nghĩa"
+      }}
+    ]
+    """
+    result = call_openrouter(system_prompt, user_prompt)
+    if result:
+        return jsonify(result)
+    return jsonify({"error": "Không thể phân tích bài luận"}), 500
+
+if __name__ == '__main__':
+    # Chạy trên cổng 5000 như Backend PHP mong đợi
+    app.run(host='0.0.0.0', port=5000, debug=True)
