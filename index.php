@@ -19,7 +19,13 @@ if (!isset($_SESSION['user_id'])) {
             --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: var(--primary); overflow-x: hidden; }
+        body { 
+    font-family: 'Be Vietnam Pro', sans-serif; /* Changed from 'Inter' to 'Be Vietnam Pro' */
+    background: var(--bg); 
+    margin: 0; 
+    color: var(--primary);
+    overflow-x: hidden; 
+}
         .main-content { padding: 40px; max-width: 800px; margin: 0 auto; min-height: 100vh; box-sizing: border-box; width: 100%; }
 
         /* --- ENTRANCE ANIMATIONS --- */

@@ -262,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
 
         <div class="google-btn-wrapper">
             <div id="g_id_onload"
-                 data-client_id="YOUR_CLIENT_ID"
+                 data-client_id="75314981645-vrtmtb1odk0k1btcvgv3gofg8udd8bsc.apps.googleusercontent.com"
                  data-context="signin"
                  data-ux_mode="redirect"
                  data-login_uri="https://study4ever.site/google-callback.php"

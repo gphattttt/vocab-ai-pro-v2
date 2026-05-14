@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Logic: Process the form within the same file
+// Logic: Xử lý form (Giữ nguyên backend)
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $user_id = $_SESSION['user_id'];
     $title = trim($_POST['title']);
@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt->bind_param("iss", $user_id, $title, $content);
         
         if ($stmt->execute()) {
-            // Reward XP for community participation
+            // Thưởng XP (Giữ nguyên logic của bạn)
             $conn->query("UPDATE users SET xp = xp + 15 WHERE id = $user_id");
             header("Location: forum.php");
             exit();
@@ -28,56 +28,124 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ask the Community | Vocab AI Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>Đặt câu hỏi | Vocab AI Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b; --accent: #10b981; --bg: #f8fafc;
-            --border: #e2e8f0; --text-muted: #64748b;
-            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --primary: #1e293b;
+            --accent: #10b981; 
+            --bg: #f8fafc;
+            --border: #e2e8f0; 
+            --text-muted: #64748b;
+            --transition: cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 40px; color: var(--primary); }
+        body { 
+            font-family: 'Be Vietnam Pro', sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 40px;
+            color: var(--primary); 
+        }
 
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-in { animation: slideUp 0.6s var(--spring) forwards; }
+        
+        .animate-in { 
+            animation: slideUp 0.6s var(--transition) forwards; 
+            opacity: 0;
+        }
 
         .container { max-width: 700px; margin: 60px auto 0 auto; }
         
         .header-section { margin-bottom: 40px; }
-        .btn-back { text-decoration: none; color: var(--text-muted); font-weight: 700; font-size: 0.9rem; transition: 0.2s; }
-        .btn-back:hover { color: var(--primary); }
+        
+        .btn-back { 
+            text-decoration: none; 
+            color: var(--text-muted); 
+            font-weight: 700; 
+            font-size: 0.95rem; 
+            transition: 0.3s;
+            display: inline-block;
+        }
+        .btn-back:hover { color: var(--accent); transform: translateX(-5px); }
 
         .form-card {
-            background: white; border-radius: 30px; padding: 40px;
-            border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+            background: white;
+            border-radius: 32px; 
+            padding: 45px;
+            border: 1px solid var(--border); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.03);
         }
 
-        .input-group { margin-bottom: 25px; }
-        .input-group label { display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; color: var(--text-muted); letter-spacing: 0.05em; }
+        .input-group { margin-bottom: 30px; }
+        
+        .input-group label { 
+            display: block; 
+            font-size: 0.75rem; 
+            font-weight: 800; 
+            text-transform: uppercase;
+            margin-bottom: 12px; 
+            color: var(--text-muted); 
+            letter-spacing: 0.05em; 
+        }
         
         input[type="text"], textarea {
-            width: 100%; padding: 18px; border: 2px solid var(--border);
-            border-radius: 18px; font-size: 1rem; box-sizing: border-box;
-            font-family: inherit; transition: 0.3s; background: #fff;
+            width: 100%;
+            padding: 18px 24px; 
+            border: 2px solid var(--border);
+            border-radius: 20px; 
+            font-size: 1rem; 
+            box-sizing: border-box;
+            font-family: inherit; 
+            transition: 0.3s; 
+            background: #fff;
         }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); background: #f0fdf4; }
+        
+        input:focus, textarea:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            background: #f0fdf4;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.05);
+        }
 
         .btn-submit {
-            width: 100%; padding: 20px; background: var(--primary); color: white;
-            border: none; border-radius: 18px; font-weight: 800; font-size: 1rem;
-            cursor: pointer; transition: 0.3s var(--spring);
+            width: 100%;
+            padding: 20px; 
+            background: var(--primary); 
+            color: white;
+            border: none; 
+            border-radius: 18px; 
+            font-weight: 800; 
+            font-size: 1.05rem;
+            cursor: pointer; 
+            transition: 0.3s var(--transition);
         }
-        .btn-submit:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); background: var(--accent); }
+        
+        .btn-submit:hover { 
+            transform: translateY(-4px); 
+            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.2); 
+            background: var(--accent);
+        }
 
-        .char-count { text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
+        .char-count { 
+            text-align: right; 
+            font-size: 0.8rem; 
+            color: var(--text-muted); 
+            margin-top: 8px; 
+            font-weight: 600; 
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 20px; padding-top: 60px; }
+            .form-card { padding: 30px 20px; }
+        }
     </style>
 </head>
 <body>
@@ -86,25 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <div class="container animate-in">
         <div class="header-section">
-            <a href="forum.php" class="btn-back">← Back to Discussions</a>
-            <h1 style="margin: 15px 0 5px 0; font-size: 2.2rem; font-weight: 800;">Start a Discussion</h1>
-            <p style="color: var(--text-muted); font-weight: 500;">Ask about grammar, IPA, or study tips! (+15 XP)</p>
+            <a href="forum.php" class="btn-back">← Quay lại Diễn đàn</a>
+            <h1 style="margin: 15px 0 8px 0; font-size: 2.4rem; font-weight: 800; letter-spacing: -1px;">Bắt đầu thảo luận mới</h1>
+            <p style="color: var(--text-muted); font-weight: 500; font-size: 1.1rem;">
+                Đặt câu hỏi về ngữ pháp, phát âm IPA hoặc mẹo học tập! <span style="color: var(--accent); font-weight: 800;">(+15 XP)</span>
+            </p>
         </div>
 
         <div class="form-card">
             <form method="POST">
                 <div class="input-group">
-                    <label>Catchy Title</label>
-                    <input type="text" name="title" maxlength="100" placeholder="e.g. How to pronounce 'Aesthetic' properly?" required>
+                    <label>Tiêu đề bài viết</label>
+                    <input type="text" name="title" maxlength="100" placeholder="VD: Cách phát âm từ 'Aesthetic' chuẩn nhất?" required>
                 </div>
 
                 <div class="input-group">
-                    <label>Explain your question</label>
-                    <textarea name="content" id="contentArea" rows="8" placeholder="Be specific so the community can help you better..." required onkeyup="updateCount()"></textarea>
-                    <div class="char-count"><span id="charNum">0</span> characters</div>
+                    <label>Nội dung chi tiết</label>
+                    <textarea name="content" id="contentArea" rows="8" placeholder="Hãy mô tả chi tiết vấn đề của bạn để cộng đồng có thể hỗ trợ tốt nhất..." required onkeyup="updateCount()"></textarea>
+                    <div class="char-count"><span id="charNum">0</span> ký tự</div>
                 </div>
 
-                <button type="submit" class="btn-submit">🚀 Post to Community</button>
+                <button type="submit" class="btn-submit">🚀 Đăng lên cộng đồng</button>
             </form>
         </div>
     </div>

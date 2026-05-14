@@ -2,31 +2,34 @@
 include 'db.php';
 session_start();
 
-$error = "";
-$success = "";
+// Điều hướng nếu người dùng đã đăng nhập
+if (isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
+// Lấy thông báo dựa trên tham số 'status' từ URL
+$message = "";
+$message_type = ""; 
 
-    // 1. Kiểm tra xem tên đăng nhập hoặc email đã tồn tại chưa
-    $check = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-    $check->bind_param("ss", $username, $email);
-    $check->execute();
-    if ($check->get_result()->num_rows > 0) {
-        $error = "Tên đăng nhập hoặc Email đã được sử dụng!";
-    } else {
-        // 2. Hash mật khẩu và chèn dữ liệu
-        $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password, xp) VALUES (?, ?, ?, 0)");
-        $stmt->bind_param("sss", $username, $email, $hashed_password);
-        if ($stmt->execute()) {
-            $success = "Tạo tài khoản thành công! Đang chuyển hướng đăng nhập...";
-            header("refresh:2;url=login.php");
-        } else {
-            $error = "Đã có lỗi xảy ra. Vui lòng thử lại sau.";
-        }
+if (isset($_GET['status'])) {
+    switch ($_GET['status']) {
+        case 'success':
+            $message = "Yêu cầu thành công! Nếu email tồn tại, bạn sẽ nhận được hướng dẫn khôi phục.";
+            $message_type = "success";
+            break;
+        case 'invalid_email':
+            $message = "Vui lòng nhập địa chỉ email hợp lệ.";
+            $message_type = "error";
+            break;
+        case 'mail_error':
+            $message = "Lỗi hệ thống gửi thư. Vui lòng thử lại sau.";
+            $message_type = "error";
+            break;
+        case 'error':
+            $message = "Đã có lỗi xảy ra trong quá trình xử lý.";
+            $message_type = "error";
+            break;
     }
 }
 ?>
@@ -36,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gia nhập Vault | Vocab AI Pro</title>
+    <title>Khôi phục mật khẩu | Vocab AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -51,8 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         body { 
             font-family: 'Be Vietnam Pro', sans-serif;
             background: var(--bg); 
-            margin: 0; display: flex; align-items: center; justify-content: center; 
-            min-height: 100vh; color: var(--primary); padding: 20px;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            margin: 0;
+            color: var(--primary);
         }
 
         @keyframes slideUp {
@@ -67,48 +74,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-shadow: 0 20px 50px rgba(0,0,0,0.03); 
             border: 1px solid var(--border);
             width: 100%; 
-            max-width: 440px; 
+            max-width: 420px; 
             text-align: center;
             animation: slideUp 0.6s var(--transition) forwards;
         }
 
-        .logo-mark {
-            width: 60px;
-            height: 60px; 
-            background: var(--accent); 
-            color: white;
-            border-radius: 18px; 
+        .icon-box {
+            width: 65px;
+            height: 65px; 
+            background: #f1f5f9; 
+            color: var(--primary);
+            border-radius: 20px; 
             display: flex; 
             align-items: center; 
             justify-content: center;
-            font-size: 1.8rem; 
-            font-weight: 800;
-            margin: 0 auto 25px auto;
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+            font-size: 1.8rem;
+            margin: 0 auto 30px auto;
         }
 
         h1 { 
-            font-size: 2rem; 
-            font-weight: 800;
-            margin: 0 0 10px 0; 
+            font-weight: 800; 
+            margin-bottom: 10px;
+            font-size: 1.8rem; 
             letter-spacing: -1px;
         }
         
         p { 
             color: var(--text-muted); 
-            font-weight: 500;
+            font-weight: 500; 
             margin-bottom: 35px; 
-            font-size: 1rem; 
+            font-size: 0.95rem;
+            line-height: 1.6;
         }
 
-        .input-group { text-align: left; margin-bottom: 22px; }
+        .input-group { 
+            text-align: left; 
+            margin-bottom: 25px; 
+        }
         
         .input-group label { 
             display: block; 
             font-size: 0.75rem; 
             font-weight: 800; 
             text-transform: uppercase;
-            margin-bottom: 8px; 
+            margin-bottom: 10px; 
             color: var(--text-muted); 
             letter-spacing: 0.05em;
         }
@@ -125,12 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         input:focus { 
-            outline: none; 
             border-color: var(--accent); 
+            outline: none; 
             background: #f0fdf4; 
         }
 
-        .btn-reg {
+        .btn-submit {
             width: 100%;
             padding: 20px; 
             background: var(--primary); 
@@ -138,13 +147,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: none; 
             border-radius: 16px; 
             font-weight: 800; 
-            font-size: 1.05rem;
+            font-size: 1rem;
             cursor: pointer; 
             transition: 0.3s var(--transition);
             margin-top: 10px;
         }
         
-        .btn-reg:hover { 
+        .btn-submit:hover { 
             transform: translateY(-3px); 
             box-shadow: 0 15px 30px rgba(30, 41, 59, 0.15);
             background: #0f172a; 
@@ -156,21 +165,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 0.9rem; 
             font-weight: 600;
             margin-bottom: 25px; 
-            border: 1px solid; 
+            border: 1px solid;
             animation: slideUp 0.4s var(--transition);
         }
-        
-        .error { 
-            background: #fef2f2; 
-            color: #ef4444;
-            border-color: #fee2e2; 
-        }
-        
-        .success { 
-            background: #f0fdf4; 
-            color: #10b981; 
-            border-color: #dcfce7;
-        }
+        .msg.success { background: #f0fdf4; color: #10b981; border-color: #dcfce7; }
+        .msg.error { background: #fef2f2; color: #ef4444; border-color: #fee2e2; }
 
         .footer-link { 
             margin-top: 35px; 
@@ -198,39 +197,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
 
     <div class="auth-card">
-        <div class="logo-mark">V+</div>
-        <h1>Tạo tài khoản</h1>
-        <p>Bắt đầu hành trình làm chủ từ vựng của bạn.</p>
+        <div class="icon-box">🔑</div>
+        <h1>Quên mật khẩu?</h1>
+        <p>Nhập email của bạn và chúng tôi sẽ gửi hướng dẫn khôi phục mật khẩu vào hòm thư.</p>
 
-        <?php if($error): ?>
-            <div class="msg error"><?php echo $error; ?></div>
-        <?php endif; ?>
-        
-        <?php if($success): ?>
-            <div class="msg success"><?php echo $success; ?></div>
-        <?php endif; ?>
-
-        <form method="POST">
-            <div class="input-group">
-                <label>Tên đăng nhập</label>
-                <input type="text" name="username" placeholder="Chọn một tên độc nhất" required>
+        <?php if($message): ?>
+            <div class="msg <?php echo $message_type; ?>">
+                <?php echo $message; ?>
             </div>
+        <?php endif; ?>
 
+        <form action="forgot_password_process.php" method="POST">
             <div class="input-group">
                 <label>Địa chỉ Email</label>
-                <input type="email" name="email" placeholder="name@example.com" required>
+                <input type="email" name="email" placeholder="name@example.com" required autofocus>
             </div>
 
-            <div class="input-group">
-                <label>Mật khẩu</label>
-                <input type="password" name="password" placeholder="Tối thiểu 8 ký tự" required>
-            </div>
-
-            <button type="submit" class="btn-reg">Gia nhập Vault</button>
+            <button type="submit" class="btn-submit">Gửi yêu cầu khôi phục</button>
         </form>
 
         <div class="footer-link">
-            Đã là thành viên? <a href="login.php">Đăng nhập tại đây</a>
+            Nhớ ra mật khẩu rồi? <a href="login.php">Quay lại Đăng nhập</a>
         </div>
     </div>
 

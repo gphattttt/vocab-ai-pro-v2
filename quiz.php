@@ -3,46 +3,126 @@ session_start();
 if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); } 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Quiz | Vocab AI Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>Trắc nghiệm thông minh | Vocab AI Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root {
-            --primary: #1e293b; --accent: #10b981; --danger: #ef4444;
-            --bg: #f8fafc; --border: #e2e8f0; --text-muted: #64748b;
-            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --primary: #1e293b;
+            --accent: #10b981; 
+            --danger: #ef4444;
+            --bg: #f8fafc; 
+            --border: #e2e8f0; 
+            --text-muted: #64748b;
+            --transition: cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 40px; color: var(--primary); overflow-x: hidden; }
+        body { 
+            font-family: 'Be Vietnam Pro', sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 40px;
+            color: var(--primary); 
+            overflow-x: hidden; 
+        }
 
         /* --- ENTRANCE ANIMATIONS --- */
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: slideUp 0.6s var(--spring) forwards; }
+        @keyframes slideUp { 
+            from { opacity: 0; transform: translateY(30px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .animate-in { 
+            animation: slideUp 0.6s var(--transition) forwards; 
+        }
 
         /* --- QUIZ UI --- */
-        .container { max-width: 600px; margin: 60px auto 0 auto; }
-        .quiz-card { background: white; padding: 40px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.04); border: 1px solid var(--border); position: relative; }
-        
-        .progress-container { width: 100%; background: #e2e8f0; height: 10px; border-radius: 20px; margin-bottom: 30px; overflow: hidden; }
-        .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; transition: width 0.4s var(--spring); }
-
-        .question-box { min-height: 140px; text-align: center; margin-bottom: 30px; transition: 0.3s; }
-        .sentence-text { font-size: 1.4rem; line-height: 1.6; font-weight: 600; color: #334155; }
-        .sentence-text span { color: var(--accent); border-bottom: 3px dashed var(--accent); padding: 0 5px; background: #f0fdf4; border-radius: 4px; }
-
-        .options { display: grid; gap: 15px; }
-        .option { 
-            padding: 20px; border: 2px solid var(--border); border-radius: 20px; 
-            cursor: pointer; transition: 0.2s var(--spring); font-weight: 700; text-align: center; font-size: 1.1rem;
-            background: white;
+        .container { 
+            max-width: 600px;
+            margin: 60px auto 0 auto; 
         }
-        .option:hover { transform: scale(1.02); border-color: var(--primary); background: #f8fafc; }
-        .option.correct { background: var(--accent) !important; color: white; border-color: var(--accent); transform: scale(1.02); }
-        .option.wrong { background: var(--danger) !important; color: white; border-color: var(--danger); animation: shake 0.4s; }
+        .quiz-card { 
+            background: white; 
+            padding: 45px;
+            border-radius: 35px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.03); 
+            border: 1px solid var(--border); 
+            position: relative;
+        }
+        
+        .progress-container { 
+            width: 100%;
+            background: #f1f5f9; 
+            height: 10px; 
+            border-radius: 20px; 
+            margin-bottom: 35px; 
+            overflow: hidden;
+        }
+        .progress-bar { 
+            height: 100%; 
+            background: linear-gradient(90deg, #10b981, #34d399); 
+            width: 0%;
+            transition: width 0.5s var(--transition); 
+        }
+
+        .question-box { 
+            min-height: 150px; 
+            text-align: center; 
+            margin-bottom: 35px;
+            transition: 0.3s; 
+        }
+        .sentence-text { 
+            font-size: 1.5rem; 
+            line-height: 1.6; 
+            font-weight: 600; 
+            color: #334155;
+            letter-spacing: -0.5px;
+        }
+        .sentence-text span { 
+            color: var(--accent); 
+            border-bottom: 3px dashed var(--accent); 
+            padding: 0 8px;
+            background: #f0fdf4; 
+            border-radius: 6px; 
+        }
+
+        .options { 
+            display: grid; 
+            gap: 15px;
+        }
+        .option { 
+            padding: 22px;
+            border: 2px solid var(--border); 
+            border-radius: 20px; 
+            cursor: pointer; 
+            transition: 0.3s var(--transition); 
+            font-weight: 700; 
+            text-align: center; 
+            font-size: 1.1rem;
+            background: white;
+            font-family: inherit;
+        }
+        .option:hover { 
+            transform: translateY(-3px); 
+            border-color: var(--accent); 
+            background: #f0fdf4;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.05);
+        }
+        .option.correct { 
+            background: var(--accent) !important; 
+            color: white; 
+            border-color: var(--accent); 
+            transform: scale(1.02);
+        }
+        .option.wrong { 
+            background: var(--danger) !important; 
+            color: white; 
+            border-color: var(--danger); 
+            animation: shake 0.4s;
+        }
         
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -51,19 +131,51 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         }
 
         #nextBtn { 
-            margin-top: 30px; width: 100%; padding: 20px; border-radius: 18px; border: none; 
-            background: var(--primary); color: white; cursor: pointer; font-weight: 800; font-size: 1rem;
-            display: none; transition: 0.3s var(--spring);
+            margin-top: 35px;
+            width: 100%; 
+            padding: 20px; 
+            border-radius: 18px; 
+            border: none; 
+            background: var(--primary); 
+            color: white; 
+            cursor: pointer; 
+            font-weight: 800; 
+            font-size: 1.05rem;
+            display: none;
+            transition: 0.3s var(--transition);
         }
-        #nextBtn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        #nextBtn:hover { 
+            background: #0f172a;
+            transform: translateY(-3px); 
+            box-shadow: 0 12px 24px rgba(30, 41, 59, 0.15);
+        }
 
         /* --- RESULTS --- */
-        #resultScreen { display: none; text-align: center; animation: slideUp 0.8s var(--spring); }
+        #resultScreen { 
+            display: none;
+            text-align: center; 
+            animation: slideUp 0.8s var(--transition); 
+        }
         .score-circle { 
-            width: 160px; height: 160px; border-radius: 50%; border: 12px solid var(--accent); 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 3rem; font-weight: 800; margin: 30px auto; color: var(--primary);
+            width: 180px;
+            height: 180px; 
+            border-radius: 50%; 
+            border: 12px solid var(--accent); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 3.5rem; 
+            font-weight: 800;
+            margin: 35px auto; 
+            color: var(--primary);
             background: #f0fdf4;
+            box-shadow: 0 15px 30px rgba(16, 185, 129, 0.1);
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 20px; padding-top: 60px; }
+            .quiz-card { padding: 30px 20px; }
+            .sentence-text { font-size: 1.3rem; }
         }
     </style>
 </head>
@@ -73,30 +185,31 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
     <div class="container animate-in">
         <div class="quiz-card">
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 15px; font-weight: 800; text-transform: uppercase; color: var(--text-muted);">
-                <span id="qCountText">Question 1 / 10</span>
-                <span id="scoreText">Accuracy: 0%</span>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">
+                <span id="qCountText">Câu hỏi 1 / 10</span>
+                <span id="scoreText">Độ chính xác: 0%</span>
             </div>
+         
             <div class="progress-container">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
 
             <div id="quizContent">
                 <div class="question-box">
-                    <div id="loadingMsg" style="color: var(--text-muted); font-weight: 600;">Gemini is crafting a question... 🧠</div>
+                    <div id="loadingMsg" style="color: var(--text-muted); font-weight: 600; font-size: 1.1rem;">Gemini đang soạn câu hỏi... 🧠</div>
                     <div class="sentence-text" id="sentenceText"></div>
                 </div>
                 <div class="options" id="optionsBox"></div>
-                <button id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+                <button id="nextBtn" onclick="nextQuestion()">Câu tiếp theo →</button>
             </div>
 
             <div id="resultScreen">
-                <h2 style="font-size: 2rem; font-weight: 800;">Session Complete!</h2>
+                <h2 style="font-size: 2.2rem; font-weight: 800; letter-spacing: -1px;">Hoàn thành thử thách!</h2>
                 <div class="score-circle" id="finalScore">0%</div>
-                <p id="resultComment" style="color: var(--text-muted); margin-bottom: 30px; font-weight: 600;"></p>
-                <div id="xpAlert" style="display:none; color: var(--accent); font-weight: 900; margin-bottom: 30px; font-size: 1.2rem;">🏆 PERFECT! +50 XP REWARDED</div>
-                <button onclick="location.reload()" class="option" style="width: 100%; background: var(--primary); color: white;">Restart Session</button>
-                <a href="index.php" style="display: block; margin-top: 20px; color: var(--text-muted); text-decoration: none; font-weight: 700;">Back to Dashboard</a>
+                <p id="resultComment" style="color: var(--text-muted); margin-bottom: 35px; font-weight: 600; font-size: 1.1rem;"></p>
+                <div id="xpAlert" style="display:none; color: var(--accent); font-weight: 900; margin-bottom: 35px; font-size: 1.3rem;">🏆 XUẤT SẮC! ĐÃ NHẬN +50 XP</div>
+                <button onclick="location.reload()" class="option" style="width: 100%; background: var(--primary); color: white; border: none;">Làm lại thử thách</button>
+                <a href="index.php" style="display: block; margin-top: 25px; color: var(--text-muted); text-decoration: none; font-weight: 700; font-size: 0.95rem;">Quay lại Bảng điều khiển</a>
             </div>
         </div>
     </div>
@@ -111,9 +224,9 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
     async function initQuiz() {
         const res = await fetch('fetch_board.php');
         quizWords = await res.json();
-        
+  
         if (quizWords.length < 4) {
-            alert("Your vault is too small! Add at least 4 words first.");
+            alert("Kho từ vựng quá ít! Thêm ít nhất 4 từ để bắt đầu thử thách.");
             window.location.href = "index.php";
             return;
         }
@@ -134,29 +247,27 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         currentWord = quizWords[currentIdx];
         currentIdx++;
         
-        document.getElementById('qCountText').innerText = `Question ${currentIdx} / ${Math.min(TOTAL_Q, quizWords.length)}`;
+        document.getElementById('qCountText').innerText = `Câu hỏi ${currentIdx} / ${Math.min(TOTAL_Q, quizWords.length)}`;
         document.getElementById('progressBar').style.width = (currentIdx / Math.min(TOTAL_Q, quizWords.length) * 100) + "%";
-
+        
         try {
-            // UPDATED: Fetch AI-generated gap-fill sentence via Nginx Proxy
             const res = await fetch(`/api/quiz-sentence?word=${encodeURIComponent(currentWord.word)}`);
             const data = await res.json();
             
             document.getElementById('loadingMsg').style.display = "none";
             document.getElementById('sentenceText').innerHTML = `"${data.sentence.replace('_____', '<span>_____</span>')}"`;
-
-            // Prepare multiple choice options
+            
             let choices = [currentWord.word];
             while (choices.length < 4) {
                 let r = quizWords[Math.floor(Math.random() * quizWords.length)].word;
                 if (!choices.includes(r)) choices.push(r);
             }
             choices.sort(() => Math.random() - 0.5);
-
+            
             choices.forEach((c, index) => {
                 const b = document.createElement('div');
                 b.className = "option";
-                b.style.animation = `slideUp 0.4s var(--spring) forwards ${0.1 * index}s`;
+                b.style.animation = `slideUp 0.4s var(--transition) forwards ${0.08 * index}s`;
                 b.style.opacity = "0";
                 b.innerText = c;
                 b.onclick = () => checkAnswer(b, c);
@@ -164,8 +275,8 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             });
         } catch(e) { 
             console.error("Quiz Error", e);
-            document.getElementById('loadingMsg').innerText = "AI is offline. Using backup question...";
-            document.getElementById('sentenceText').innerText = `What is the meaning of: ${currentWord.definition_en}`;
+            document.getElementById('loadingMsg').innerText = "AI đang ngoại tuyến. Đang dùng câu hỏi dự phòng...";
+            document.getElementById('sentenceText').innerText = `Nghĩa của từ này là gì: ${currentWord.definition_en}`;
         }
     }
 
@@ -174,7 +285,6 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         options.forEach(o => o.onclick = null); 
 
         const is_correct = (selected === currentWord.word);
-
         if (is_correct) {
             btn.classList.add('correct');
             score++;
@@ -183,13 +293,13 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             options.forEach(o => { if(o.innerText === currentWord.word) o.classList.add('correct'); });
         }
 
-        // --- BACKGROUND SRS UPDATE ---
+        // --- CẬP NHẬT SRS HẬU TRƯỜNG ---
         const srsData = new FormData();
         srsData.append('id', currentWord.id);
         srsData.append('is_correct', is_correct);
         fetch('update_srs.php', { method: 'POST', body: srsData });
 
-        document.getElementById('scoreText').innerText = `Accuracy: ${Math.round((score/currentIdx)*100)}%`;
+        document.getElementById('scoreText').innerText = `Độ chính xác: ${Math.round((score/currentIdx)*100)}%`;
         document.getElementById('nextBtn').style.display = "block";
     }
 
@@ -199,13 +309,22 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         const percent = Math.round((score / Math.min(TOTAL_Q, quizWords.length)) * 100);
         document.getElementById('finalScore').innerText = percent + "%";
         
+        let comment = "";
         if (percent === 100) {
+            comment = "Tuyệt vời! Bạn đã làm chủ hoàn toàn các từ vựng này.";
             confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#1e293b'] });
             document.getElementById('xpAlert').style.display = "block";
             const fd = new FormData();
             fd.append('amount', 50);
             fetch('reward_xp.php', { method: 'POST', body: fd });
+        } else if (percent >= 80) {
+            comment = "Rất tốt! Bạn đang tiến bộ rất nhanh.";
+        } else if (percent >= 50) {
+            comment = "Khá tốt! Hãy ôn tập thêm một chút nhé.";
+        } else {
+            comment = "Đừng nản lòng! Luyện tập nhiều hơn sẽ giúp bạn ghi nhớ.";
         }
+        document.getElementById('resultComment').innerText = comment;
     }
 
     window.onload = initQuiz;
