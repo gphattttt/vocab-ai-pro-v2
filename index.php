@@ -10,131 +10,170 @@ if (!isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bảng điều khiển | Vocab AI Pro</title>
+    <title>Khám phá Từ vựng | Vocab AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b; --accent: #10b981; --bg: #f8fafc;
-            --border: #e2e8f0; --text-muted: #64748b;
+            --primary: #1e293b; 
+            --accent: #10b981; 
+            --bg: #f8fafc;
+            --border: #e2e8f0; 
+            --text-muted: #64748b;
             --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         body { 
-    font-family: 'Be Vietnam Pro', sans-serif; /* Changed from 'Inter' to 'Be Vietnam Pro' */
-    background: var(--bg); 
-    margin: 0; 
-    color: var(--primary);
-    overflow-x: hidden; 
-}
-        .main-content { padding: 40px; max-width: 800px; margin: 0 auto; min-height: 100vh; box-sizing: border-box; width: 100%; }
-
-        /* --- ENTRANCE ANIMATIONS --- */
-        @keyframes springUp {
-            0% { opacity: 0; transform: scale(0.9) translateY(40px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: var(--bg); 
+            margin: 0; 
+            color: var(--primary);
+            overflow-x: hidden; 
         }
 
-        @keyframes toastIn {
-            0% { transform: translate(-50%, 100px); opacity: 0; }
-            100% { transform: translate(-50%, 0); opacity: 1; }
+        /* --- LAYOUT OPTIMIZATION --- */
+        .main-content { 
+            padding: 80px 20px 40px 20px; /* Thêm padding top để không bị đè bởi nav button */
+            max-width: 800px; 
+            margin: 0 auto; 
+            min-height: 100vh; 
+            box-sizing: border-box;
         }
 
-        .animate-spring { animation: springUp 0.7s var(--spring) forwards; }
+        /* --- AI STATUS BADGE --- */
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px; font-size: 0.75rem;
+            font-weight: 700; margin-bottom: 20px; border: 1px solid var(--border);
+            background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+        .status-online { background: var(--accent); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+        .status-offline { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
 
-        /* --- HEADER TEXT --- */
-        .page-title { font-size: 3rem; font-weight: 800; margin-bottom: 10px; letter-spacing: -1px; }
-        .page-subtitle { color: var(--text-muted); font-weight: 500; font-size: 1.1rem; margin-top: 0; }
+        /* --- RESPONSIVE SEARCH BAR --- */
+        .search-container { 
+            position: relative; 
+            margin-bottom: 30px; 
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
 
-        /* --- SEARCH BOX --- */
-        .search-area { 
-            background: white; padding: 10px; border-radius: 24px; 
-            border: 1px solid var(--border); display: flex; gap: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.03); margin-top: 40px; transition: 0.3s var(--spring);
+        input#wordSearch {
+            width: 100%; 
+            padding: 20px 25px; 
+            border-radius: 20px;
+            border: 2px solid var(--border); 
+            font-size: 1.1rem; 
+            font-family: inherit;
+            box-sizing: border-box; 
+            outline: none; 
+            transition: 0.3s var(--spring);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
         }
-        .search-area:focus-within { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 15px 30px rgba(16, 185, 129, 0.1); }
-        
-        .search-area input { 
-            flex: 1; border: none; padding: 15px 20px; font-size: 1rem; /* 1rem prevents iOS auto-zoom */
-            font-family: inherit; outline: none; border-radius: 18px; min-width: 0;
-        }
-        
-        .btn-search { 
-            background: var(--primary); color: white; border: none; 
-            padding: 0 35px; border-radius: 18px; font-weight: 800; font-size: 1rem;
-            cursor: pointer; transition: 0.3s var(--spring); white-space: nowrap; flex-shrink: 0;
-        }
-        .btn-search:hover { background: var(--accent); transform: scale(1.03); }
 
-        /* --- SKELETON LOADER (PULSING) --- */
-        #skeletonBox { display: none; margin-top: 30px; background: white; padding: 40px; border-radius: 32px; border: 1px solid var(--border); box-sizing: border-box;}
-        .skeleton-line { 
-            height: 20px; background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-            background-size: 200% 100%; animation: skeleton-move 1.5s infinite;
-            border-radius: 8px; margin-bottom: 15px;
+        .btn-search {
+            background: var(--primary); 
+            color: white; 
+            border: none;
+            padding: 18px; 
+            border-radius: 18px; 
+            font-weight: 800;
+            cursor: pointer; 
+            transition: 0.3s;
+            font-size: 1rem;
+            width: 100%; /* Mặc định full width trên mobile */
         }
-        @keyframes skeleton-move { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Desktop: Nút nằm trong input */
+        @media (min-width: 600px) {
+            .search-container { flex-direction: row; gap: 0; }
+            .btn-search { 
+                position: absolute; right: 8px; top: 8px; bottom: 8px; 
+                width: auto; padding: 0 25px; 
+            }
+            input#wordSearch { padding-right: 120px; }
+        }
 
         /* --- RESULT CARD --- */
-        #resultBox { display: none; margin-top: 30px; }
-        .vocab-card { 
-            background: white; padding: 45px; border-radius: 35px; 
-            border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.05);
-            position: relative; overflow: hidden; box-sizing: border-box;
+        .result-card {
+            background: white; 
+            padding: 30px; 
+            border-radius: 30px;
+            border: 1px solid var(--border); 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.04);
+            display: none; 
+            animation: slideUp 0.6s var(--spring) forwards;
         }
 
-        .level-badge { position: absolute; top: 40px; right: 40px; background: #ecfdf5; color: #10b981; padding: 8px 16px; border-radius: 14px; font-weight: 900; font-size: 0.85rem; letter-spacing: 1px; }
-        .word-title { font-size: 3.5rem; font-weight: 800; margin: 0; letter-spacing: -1.5px; word-break: break-word; padding-right: 60px; line-height: 1.1; }
-        .ipa { font-family: 'Courier New', monospace; color: var(--text-muted); font-size: 1.2rem; margin-top: 10px; margin-bottom: 30px; display: block; font-weight: 500; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .word-header { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            margin-bottom: 25px; 
+        }
         
-        .def-container { margin-bottom: 30px; padding-left: 20px; border-left: 4px solid var(--accent); }
-        .def-en { font-size: 1.15rem; font-weight: 600; margin-bottom: 10px; line-height: 1.5; color: var(--primary); }
-        .def-vi { color: #1e40af; font-size: 1rem; font-weight: 600; background: #eff6ff; padding: 6px 12px; border-radius: 8px; display: inline-block; line-height: 1.4; }
-
-        /* --- SYNONYMS & ANTONYMS --- */
-        .extra-info { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; text-align: left; }
-        .info-section { flex: 1; min-width: 140px; }
-        .tag-label { font-size: 0.75rem; text-transform: uppercase; display: block; margin-bottom: 8px; color: var(--text-muted); font-weight: 800; letter-spacing: 0.05em; }
-        .info-tag { padding: 12px 16px; border-radius: 14px; font-size: 0.9rem; font-weight: 600; line-height: 1.4; }
-        .tag-syn { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
-        .tag-ant { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
-
-        .example-quote { background: #f8fafc; padding: 25px 30px; border-radius: 20px; color: #334155; line-height: 1.6; font-size: 1.05rem; position: relative; font-weight: 500; font-style: italic; }
-        .example-quote::before { content: '"'; position: absolute; left: 12px; top: 10px; font-size: 3rem; opacity: 0.1; font-family: Georgia, serif; line-height: 1; }
-
-        .btn-save { 
-            width: 100%; margin-top: 30px; padding: 20px; border-radius: 18px; 
-            background: var(--primary); color: white; border: none; font-weight: 800; 
-            font-size: 1.1rem; cursor: pointer; transition: 0.3s var(--spring);
-            display: flex; justify-content: center; align-items: center; gap: 10px;
+        @media (min-width: 600px) {
+            .word-header { flex-direction: row; justify-content: space-between; align-items: center; }
         }
-        .btn-save:hover { transform: translateY(-4px); background: var(--accent); box-shadow: 0 15px 30px rgba(16, 185, 129, 0.2); }
 
-        /* --- POPUP TOAST --- */
+        .word-main { font-size: 2.5rem; font-weight: 800; letter-spacing: -1.5px; margin: 0; line-height: 1.1; }
+        .ipa { font-size: 1.1rem; color: var(--text-muted); font-weight: 500; display: block; margin-top: 4px; }
+        .tag { 
+            background: #f1f5f9; 
+            padding: 6px 12px; 
+            border-radius: 10px; 
+            font-weight: 800; 
+            font-size: 0.75rem; 
+            display: inline-block;
+            width: fit-content;
+        }
+
+        .def-box { margin-bottom: 25px; line-height: 1.5; }
+        .def-vi { font-size: 1.25rem; font-weight: 700; color: #1e40af; margin-bottom: 8px; }
+        .def-en { font-size: 0.95rem; color: #475569; font-weight: 500; }
+
+        .example-box { 
+            background: #f8fafc; 
+            padding: 20px; 
+            border-radius: 18px; 
+            border-left: 4px solid var(--accent); 
+            font-style: italic; 
+            color: #334155; 
+            margin-bottom: 25px; 
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .btn-save {
+            width: 100%; padding: 18px; border-radius: 16px; border: none;
+            background: var(--primary); color: white; font-weight: 800; font-size: 1rem;
+            cursor: pointer; transition: 0.3s var(--spring);
+        }
+
+        /* --- DEBUGGER --- */
+        #debuggerArea {
+            display: none; background: #0f172a; color: #38bdf8; padding: 20px;
+            border-radius: 18px; margin-top: 30px; font-family: 'Courier New', monospace;
+            font-size: 0.75rem; line-height: 1.4; border: 2px solid #1e293b; overflow-x: auto;
+        }
+
+        /* --- TOAST --- */
         #saveToast {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: var(--primary); color: white; padding: 16px 24px; border-radius: 50px;
-            font-weight: 600; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            align-items: center; gap: 12px; white-space: nowrap; font-size: 0.95rem;
+            position: fixed; bottom: 20px; left: 20px; right: 20px;
+            background: white; padding: 12px 20px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: none;
+            align-items: center; gap: 10px; font-weight: 700; z-index: 2000;
+            border: 1px solid var(--border); font-size: 0.9rem;
+        }
+        @media (min-width: 600px) {
+            #saveToast { width: fit-content; left: 50%; transform: translateX(-50%); }
         }
 
-        /* --- MOBILE RESPONSIVENESS --- */
-        @media (max-width: 768px) {
-            .main-content { padding: 20px; padding-top: 40px; }
-            .page-title { font-size: 2.2rem; }
-            .page-subtitle { font-size: 1rem; }
-            
-            .search-area { flex-direction: column; padding: 15px; border-radius: 20px; }
-            .search-area input { padding: 10px; text-align: center; }
-            .btn-search { padding: 15px; width: 100%; border-radius: 12px; }
-            
-            .vocab-card { padding: 25px; border-radius: 24px; }
-            .level-badge { top: 25px; right: 25px; padding: 6px 12px; font-size: 0.75rem; }
-            .word-title { font-size: 2.2rem; padding-right: 0; margin-top: 35px; } /* Margin top to clear badge if word is long */
-            .ipa { font-size: 1.1rem; margin-bottom: 20px; }
-            
-            #skeletonBox { padding: 25px; border-radius: 24px; }
-            .example-quote { padding: 20px; font-size: 1rem; }
-        }
+        h1.page-title { font-weight: 800; font-size: 1.8rem; letter-spacing: -0.5px; margin-bottom: 8px; margin-top: 0; }
+        p.page-desc { color: var(--text-muted); font-weight: 500; margin-bottom: 30px; font-size: 0.95rem; }
     </style>
 </head>
 <body>
@@ -142,172 +181,154 @@ if (!isset($_SESSION['user_id'])) {
     <?php include 'nav.php'; ?>
 
     <div class="main-content">
-        <div class="animate-spring" style="text-align: center; margin-top: 20px;">
-            <h1 class="page-title">Mở rộng kho từ vựng.</h1>
-            <p class="page-subtitle">Thông minh tức thì, trợ lực bởi Gemini 2.5</p>
+        <div class="status-badge" id="aiStatus">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">AI Engine...</span>
         </div>
 
-        <div class="search-area animate-spring" style="animation-delay: 0.1s;">
-            <input type="text" id="wordInput" placeholder="Nhập một từ tiếng Anh để khám phá..." onkeypress="if(event.key === 'Enter') startSearch()">
-            <button class="btn-search" onclick="startSearch()" id="searchBtn">Khám phá</button>
+        <h1 class="page-title">Khám phá từ vựng</h1>
+        <p class="page-desc">Nhập một từ tiếng Anh để AI phân tích chuyên sâu.</p>
+
+        <div class="search-container">
+            <input type="text" id="wordSearch" placeholder="Ví dụ: Resilient, Serendipity..." onkeypress="if(event.key === 'Enter') searchWord()">
+            <button class="btn-search" onclick="searchWord()" id="searchBtn">Tìm kiếm</button>
         </div>
 
-        <div id="skeletonBox">
-            <div class="skeleton-line" style="width: 50%; height: 40px;"></div>
-            <div class="skeleton-line" style="width: 30%;"></div>
-            <div class="skeleton-line" style="width: 100%; height: 80px; margin-top: 20px;"></div>
-            <div class="skeleton-line" style="width: 100%; height: 60px;"></div>
-        </div>
-
-        <div id="resultBox">
-            <div class="vocab-card" id="mainCard">
-                <div class="level-badge" id="resLevel">B2</div>
-                <h2 class="word-title" id="resWord">Word</h2>
-                <span class="ipa" id="resIpa">/phonetic/</span>
-                
-                <div class="def-container">
-                    <div class="def-en" id="resDefEn">English Definition</div>
-                    <div class="def-vi" id="resDefVi">Bản dịch tiếng Việt</div>
+        <div id="resultCard" class="result-card">
+            <div class="word-header">
+                <div>
+                    <h2 id="displayWord" class="word-main">Word</h2>
+                    <span id="displayIpa" class="ipa">/ipa/</span>
                 </div>
-
-                <div class="extra-info">
-                    <div class="info-section">
-                        <span class="tag-label">Từ đồng nghĩa</span>
-                        <div id="resSynonyms" class="info-tag tag-syn">Không có</div>
-                    </div>
-                    <div class="info-section">
-                        <span class="tag-label">Từ trái nghĩa</span>
-                        <div id="resAntonyms" class="info-tag tag-ant">Không có</div>
-                    </div>
-                </div>
-
-                <div class="example-quote">
-                    <span id="resEx">"Một câu ví dụ phong phú ngữ cảnh từ AI."</span>
-                </div>
-
-                <button class="btn-save" id="saveBtn" onclick="saveToVault()">
-                    Thêm vào kho từ vựng +
-                </button>
+                <div id="displayLevel" class="tag">LEVEL</div>
             </div>
+
+            <div class="def-box">
+                <div id="displayVi" class="def-vi">Định nghĩa tiếng Việt</div>
+                <div id="displayEn" class="def-en">English definition...</div>
+            </div>
+
+            <div id="displayEx" class="example-box">"Example sentence..."</div>
+
+            <button id="saveBtn" class="btn-save" onclick="saveToVault()">Lưu vào kho từ vựng +</button>
+        </div>
+
+        <div id="debuggerArea">
+            <strong style="color: #ef4444; display: block; margin-bottom: 8px;">⚠️ DEBUGGER:</strong>
+            <div id="debugContent"></div>
+            <pre id="debugRaw" style="background:#1e293b; padding:12px; border-radius:10px; margin-top:10px; white-space: pre-wrap; color: #94a3b8;"></pre>
         </div>
     </div>
 
     <div id="saveToast">
-        <span style="background: var(--accent); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">✓</span>
-        Đã lưu thành công! (+10 XP)
+        <div style="background: var(--accent); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">✓</div>
+        <span>Đã lưu! +10 XP ⚡</span>
     </div>
 
 <script>
-let activeWordData = null;
+    const API_URL = '/api';
+    let activeWordData = null;
 
-async function startSearch() {
-    const word = document.getElementById('wordInput').value.trim();
-    if (!word) return;
-
-    const resultBox = document.getElementById('resultBox');
-    const skeleton = document.getElementById('skeletonBox');
-    const searchBtn = document.getElementById('searchBtn');
-
-    // UI Reset
-    resultBox.style.display = "none";
-    skeleton.style.display = "block";
-    searchBtn.innerText = "Đang xử lý...";
-    searchBtn.disabled = true;
-
-    try {
-        // 1. CACHE CHECK (Fast Path)
-        const cacheRes = await fetch(`check_cache.php?word=${word}`);
-        const cacheData = await cacheRes.json();
-
-        if (cacheData.exists) {
-            renderResult(cacheData.data);
-        } else {
-            // 2. AI FETCH (Slow Path) - Updated for study4ever.site via Nginx Proxy
-            const aiRes = await fetch(`/api/get-vocab?word=${word}`);
-            const aiData = await aiRes.json();
-            renderResult(aiData);
+    async function checkAI() {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        try {
+            const res = await fetch(`${API_URL}/health`);
+            if (res.ok) {
+                dot.className = "status-dot status-online";
+                text.innerText = "Sẵn sàng";
+            }
+        } catch (e) {
+            dot.className = "status-dot status-offline";
+            text.innerText = "Mất kết nối";
         }
-    } catch (e) {
-        alert("Mất kết nối. Vui lòng kiểm tra lại dịch vụ Python AI.");
-        searchBtn.innerText = "Khám phá";
-        searchBtn.disabled = false;
-    } finally {
-        skeleton.style.display = "none";
     }
-}
+    checkAI();
 
-function renderResult(data) {
-    activeWordData = data;
-    document.getElementById('resWord').innerText = data.word;
-    document.getElementById('resIpa').innerText = data.ipa;
-    document.getElementById('resLevel').innerText = data.level;
-    document.getElementById('resDefEn').innerText = data.definition_en;
-    document.getElementById('resDefVi').innerText = data.definition_vi;
-    document.getElementById('resEx').innerText = `"${data.example_sentence}"`;
-    
-    // Fill Synonyms and Antonyms (Handle null/empty responses elegantly)
-    document.getElementById('resSynonyms').innerText = data.synonyms && data.synonyms !== "None" ? data.synonyms : "Không tìm thấy";
-    document.getElementById('resAntonyms').innerText = data.antonyms && data.antonyms !== "None" ? data.antonyms : "Không tìm thấy";
-    
-    const resultBox = document.getElementById('resultBox');
-    resultBox.style.display = "block";
-    
-    // Trigger Spring Animation
-    const card = document.getElementById('mainCard');
-    card.style.animation = 'none';
-    card.offsetHeight; /* trigger reflow */
-    card.style.animation = "springUp 0.8s var(--spring) forwards";
+    async function searchWord() {
+        const word = document.getElementById('wordSearch').value.trim();
+        const btn = document.getElementById('searchBtn');
+        const card = document.getElementById('resultCard');
+        const debugArea = document.getElementById('debuggerArea');
 
-    const searchBtn = document.getElementById('searchBtn');
-    searchBtn.innerText = "Khám phá";
-    searchBtn.disabled = false;
-    
-    // Reset the save button state if previously saved
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.innerText = "Thêm vào kho từ vựng +";
-    saveBtn.style.background = "var(--primary)";
-    saveBtn.disabled = false;
-}
+        if (!word) return;
 
-async function saveToVault() {
-    if (!activeWordData) return;
-    const saveBtn = document.getElementById('saveBtn');
-    const toast = document.getElementById('saveToast');
-    
-    saveBtn.innerText = "Đang lưu...";
-    saveBtn.disabled = true;
-    
-    const formData = new FormData();
-    Object.keys(activeWordData).forEach(key => formData.append(key, activeWordData[key]));
-    
-    try {
-        const res = await fetch('save.php', { method: 'POST', body: formData });
-        const resultText = await res.text();
-        
-        if (resultText.trim() === "Success") {
-            saveBtn.innerText = "Đã lưu vào kho ✓";
-            saveBtn.style.background = "var(--accent)";
-            
-            // SHOW SUCCESS POPUP WITH GAMIFICATION XP MESSAGE
-            toast.style.display = "flex";
-            toast.style.animation = "toastIn 0.5s var(--spring) forwards";
-            
-            setTimeout(() => {
-                toast.style.display = "none";
-            }, 3500);
-            
-        } else if (resultText.trim() === "Duplicate") {
-            saveBtn.innerText = "Từ này đã có trong kho";
-            saveBtn.style.background = "#64748b";
-        } else {
-            saveBtn.innerText = "Lỗi khi lưu";
-            saveBtn.disabled = false;
+        btn.disabled = true;
+        btn.innerText = "...";
+        card.style.display = "none";
+        debugArea.style.display = "none";
+
+        try {
+            const res = await fetch(`${API_URL}/get-vocab?word=${encodeURIComponent(word)}`);
+            const rawText = await res.text();
+            let data;
+
+            try { data = JSON.parse(rawText); } 
+            catch (e) { throw { message: "Phản hồi AI không phải JSON.", raw: rawText }; }
+
+            if (!res.ok) throw { message: data.error || "Lỗi API", raw: data };
+
+            activeWordData = data;
+            renderWord();
+
+        } catch (e) {
+            showDebugger(e);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Tìm kiếm";
         }
-    } catch (e) {
-        saveBtn.innerText = "Lỗi kết nối";
+    }
+
+    function renderWord() {
+        document.getElementById('displayWord').innerText = activeWordData.word;
+        document.getElementById('displayIpa').innerText = activeWordData.ipa;
+        document.getElementById('displayLevel').innerText = `${activeWordData.level} • ${activeWordData.word_form}`;
+        document.getElementById('displayVi').innerText = activeWordData.definition_vi;
+        document.getElementById('displayEn').innerText = activeWordData.definition_en;
+        document.getElementById('displayEx').innerText = `"${activeWordData.example_sentence}"`;
+        document.getElementById('resultCard').style.display = "block";
+        
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.innerText = "Lưu vào kho từ vựng +";
+        saveBtn.style.background = "var(--primary)";
         saveBtn.disabled = false;
     }
-}
+
+    async function saveToVault() {
+        if (!activeWordData) return;
+        const saveBtn = document.getElementById('saveBtn');
+        const toast = document.getElementById('saveToast');
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Đang lưu...";
+        
+        const formData = new FormData();
+        Object.keys(activeWordData).forEach(key => formData.append(key, activeWordData[key]));
+        
+        try {
+            const res = await fetch('save.php', { method: 'POST', body: formData });
+            const resultText = (await res.text()).trim();
+            
+            if (resultText === "Success") {
+                saveBtn.innerText = "Đã lưu ✓";
+                saveBtn.style.background = "var(--accent)";
+                toast.style.display = "flex";
+                setTimeout(() => { toast.style.display = "none"; }, 3000);
+            } else if (resultText === "Duplicate") {
+                saveBtn.innerText = "Đã có trong kho";
+                saveBtn.style.background = "#64748b";
+            } else { throw { message: "Lỗi lưu trữ PHP", raw: resultText }; }
+        } catch (e) {
+            showDebugger(e);
+            saveBtn.disabled = false;
+            saveBtn.innerText = "Lỗi!";
+        }
+    }
+
+    function showDebugger(err) {
+        document.getElementById('debuggerArea').style.display = "block";
+        document.getElementById('debugContent').innerText = err.message;
+        document.getElementById('debugRaw').innerText = typeof err.raw === 'object' ? JSON.stringify(err.raw, null, 2) : err.raw;
+    }
 </script>
 </body>
 </html>

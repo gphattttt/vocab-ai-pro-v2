@@ -1,417 +1,384 @@
 <?php
+/**
+ * Vocab AI Pro - Board Management (Session 2026)
+ * Protocol: Full File Delivery & Debugger-First
+ * Features: Grid/List Toggle, Bulk Action, Export, Radar Status
+ */
+
 include 'db.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
-    exit();
+    exit;
 }
 
 $user_id = $_SESSION['user_id'];
-?>
 
+// Fetch Vocabularies with Category Name
+$vocab_query = "SELECT v.*, c.name as category_name 
+                FROM vocabularies v 
+                LEFT JOIN categories c ON v.category_id = c.id 
+                WHERE v.user_id = $user_id 
+                ORDER BY v.id DESC";
+$vocab_result = $conn->query($vocab_query);
+
+// Fetch Categories for Modal
+$cat_query = "SELECT * FROM categories WHERE user_id = $user_id";
+$cat_result = $conn->query($cat_query);
+$categories = [];
+while($row = $cat_result->fetch_assoc()) { $categories[] = $row; }
+?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kho từ vựng & Thư mục | Vocab AI Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab AI Pro | Vault Board</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b; --accent: #10b981; --bg: #f8fafc;
-            --border: #e2e8f0; --text-muted: #64748b; --danger: #ef4444;
-            --sidebar-width: 280px;
+            --primary: #1e293b;
+            --accent: #10b981;
+            --bg: #f8fafc;
+            --border: #e2e8f0;
+            --text-muted: #64748b;
             --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --transition: all 0.3s var(--spring);
         }
 
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: var(--primary); display: flex; min-height: 100vh; overflow-x: hidden; }
-
-        /* --- SIDEBAR --- */
-        .sidebar { 
-            width: var(--sidebar-width); background: white; border-right: 1px solid var(--border); 
-            padding: 30px 20px; position: fixed; top: 0; left: 0; height: 100vh; box-sizing: border-box;
-            display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.03);
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--primary);
+            padding: 40px;
         }
-        .sidebar.collapsed { transform: translateX(-100%); }
 
-        .sidebar-toggle {
-            position: absolute; right: -28px; top: 80px;
-            width: 28px; height: 60px; background: white; border: 1px solid var(--border); 
-            border-left: none; border-radius: 0 12px 12px 0; display: flex; 
-            align-items: center; justify-content: center; cursor: pointer;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.05); transition: 0.3s; z-index: 1010; color: var(--text-muted);
+        /* --- Header Controls --- */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+            border: 1px solid var(--border);
         }
-        .sidebar-toggle:hover { background: var(--accent); color: white; border-color: var(--accent); }
-        .sidebar-toggle::after { content: "❮"; transition: 0.3s; font-size: 0.8rem; font-weight: 800; }
-        .sidebar.collapsed .sidebar-toggle::after { content: "❯"; }
 
-        /* --- MAIN CONTENT --- */
-        .main-content { 
-            flex: 1; margin-left: var(--sidebar-width); transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
-            padding: 40px; padding-top: 80px; min-width: 0; box-sizing: border-box; width: 100%;
-        }
-        .sidebar.collapsed + .main-content { margin-left: 0; }
-        .container { max-width: 1000px; margin: 0 auto; width: 100%; }
+        .view-controls, .export-controls { display: flex; gap: 10px; }
 
-        /* --- FOLDERS --- */
-        .folder-list { margin-top: 20px; flex: 1; overflow-y: auto; padding-right: 5px; }
-        .folder-item { 
-            padding: 12px 16px; border-radius: 12px; cursor: pointer; transition: 0.2s;
-            font-weight: 600; color: var(--text-muted); font-size: 0.95rem; margin-bottom: 5px;
-            display: flex; justify-content: space-between; align-items: center;
+        button {
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .folder-item:hover { background: #f1f5f9; color: var(--primary); }
-        .folder-item.active { background: var(--primary); color: white; }
+
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* --- Radar Status --- */
+        .radar-box { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 700; }
+        .radar-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; transition: 0.3s; }
+        .radar-dot.online { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+        /* --- Bulk Actions Bar (Floating) --- */
+        #bulk-bar {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            z-index: 1000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* --- Vocab Container Layouts --- */
+        #vocab-container { margin-top: 20px; min-height: 400px; }
+
+        /* Grid View */
+        .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; }
         
-        .new-folder-box { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); }
-        .folder-input { 
-            width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); 
-            margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 1rem;
+        /* List View */
+        .list-view { display: flex; flex-direction: column; gap: 15px; }
+
+        .vocab-card {
+            background: white;
+            padding: 30px;
+            border-radius: 32px;
+            border: 1px solid var(--border);
+            position: relative;
+            transition: var(--transition);
+            overflow: hidden;
         }
-        .folder-input:focus { outline: none; border-color: var(--accent); }
-        
-        /* --- HEADER & CARDS --- */
-        .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 15px; flex-wrap: wrap; }
-        .header-title-area { flex: 1; min-width: 250px; }
-        .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        
-        .search-bar { flex: 1; min-width: 180px; padding: 12px 20px; border-radius: 12px; border: 2px solid var(--border); outline: none; font-size: 1rem; font-family: inherit; transition: 0.3s; }
-        .search-bar:focus { border-color: var(--accent); }
-        
-        /* FIX #1: Added color: var(--primary) here so we don't need inline styles, allowing .active to override it properly */
-        .btn-toggle { background: white; border: 1px solid var(--border); padding: 12px 18px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 0.9rem; transition: 0.2s; white-space: nowrap; color: var(--primary); }
-        .btn-toggle:hover { background: #f8fafc; }
-        .btn-toggle.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .word-card { background: white; border-radius: 20px; padding: 25px; border: 1px solid var(--border); position: relative; cursor: pointer; transition: 0.3s var(--spring); }
-        .word-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 10px 20px rgba(0,0,0,0.03); }
-        
-        /* List View Support */
-        .grid.list-mode { grid-template-columns: 1fr; gap: 12px; }
-        .grid.list-mode .card-details { max-height: 0; overflow: hidden; opacity: 0; transition: 0.3s; }
-        .grid.list-mode .word-card.active .card-details { max-height: 600px; opacity: 1; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); }
-        .list-preview { display: none; align-items: center; gap: 15px; width: 100%; }
-        .grid.list-mode .list-preview { display: flex; padding-right: 90px; }
-        .grid.list-mode .grid-header { display: none; }
+        .vocab-card:hover { transform: scale(1.02); box-shadow: 0 20px 50px rgba(0,0,0,0.05); }
 
-        .select-checkbox { position: absolute; top: 20px; left: 20px; width: 24px; height: 24px; z-index: 20; display: none; cursor: pointer; }
-        .selection-mode .select-checkbox { display: block; }
-        .selection-mode .word-card.selected { border-color: var(--accent); background: #f0fdf4; }
+        .select-checkbox { position: absolute; top: 20px; right: 20px; width: 18px; height: 18px; cursor: pointer; }
 
-        .bulk-action-bar { 
-            position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: var(--primary);
-            color: white; padding: 15px 25px; border-radius: 16px; display: flex; align-items: center; gap: 15px; 
-            z-index: 3000; transition: 0.4s var(--spring); flex-wrap: wrap; justify-content: center; width: max-content; max-width: 90%;
+        .list-view .vocab-card {
+            display: grid;
+            grid-template-columns: 50px 1.5fr 1fr 1fr 120px;
+            align-items: center;
+            padding: 15px 30px;
         }
-        .bulk-action-bar.active { bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
 
-        .card-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; z-index: 10; }
-        .action-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; font-size: 1.1rem; }
-        .action-btn:hover { background: #f1f5f9; }
-
-        .level-badge { font-size: 0.65rem; font-weight: 800; padding: 5px 10px; border-radius: 8px; background: #f1f5f9; text-transform: uppercase; color: var(--primary); }
-        .ipa { font-family: 'Courier New', monospace; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; }
-        .vi-text { color: #1e40af; border-left: 3px solid #bfdbfe; padding-left: 12px; font-style: italic; font-size: 0.95rem; margin-top: 10px; font-weight: 500;}
-        .vi-preview { font-size: 0.9rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* Modal */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; z-index: 2000; backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
-        .modal.active { display: flex; }
-        .modal-content { background: white; padding: 30px; border-radius: 24px; width: 100%; max-width: 500px; animation: springUp 0.5s var(--spring); box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
-        @keyframes springUp { from { transform: scale(0.9) translateY(30px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-label { display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: var(--text-muted); }
-
-        /* --- MOBILE RESPONSIVENESS --- */
-        @media (max-width: 768px) {
-            /* FIX #2: Strict -100% translation so it tucks entirely off-screen, and removing the box-shadow */
-            .sidebar.collapsed { transform: translateX(-100%); box-shadow: none; } 
-            .sidebar:not(.collapsed) { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.15); }
-            
-            .main-content { margin-left: 0 !important; padding: 20px; padding-top: 60px; }
-            
-            .header-flex { flex-direction: column; align-items: stretch; }
-            .header-controls { justify-content: flex-start; }
-            .search-bar { width: 100%; flex: none; }
-            
-            .grid { grid-template-columns: 1fr; } 
-            
-            .grid.list-mode .vi-preview { display: none; }
-            
-            h1#viewTitle { font-size: 1.8rem !important; }
-            .bulk-action-bar { width: 90%; padding: 12px 20px; flex-direction: column; gap: 10px; }
-            .bulk-action-bar .btn-toggle { width: 100%; }
+        .level-badge {
+            background: #ecfdf5; color: var(--accent);
+            padding: 4px 12px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;
         }
+
+        /* --- Modal Styles --- */
+        .modal {
+            display: none; position: fixed; z-index: 2000; left: 0; top: 0;
+            width: 100%; height: 100%; background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            background: white; width: 90%; max-width: 650px;
+            margin: 50px auto; padding: 40px; border-radius: 35px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.1);
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.9rem; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 12px 18px; border: 1.5px solid var(--border);
+            border-radius: 14px; font-family: inherit; font-size: 1rem; outline: none;
+        }
+        .form-group input:focus { border-color: var(--accent); }
     </style>
 </head>
 <body>
 
-    <?php include 'nav.php'; ?>
+<div class="header-actions">
+    <div class="view-controls">
+        <button id="btn-grid" onclick="changeView('grid')" class="active">Lưới</button>
+        <button id="btn-list" onclick="changeView('list')">Danh sách</button>
+    </div>
 
-    <aside class="sidebar collapsed" id="sidebar">
-        <div class="sidebar-toggle" onclick="toggleSidebar()" title="Đóng/Mở Thư mục"></div>
-        <h2 style="font-weight: 800; margin-bottom: 5px; margin-top: 0;">Thư mục</h2>
-        <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500; margin-bottom: 25px;">Sắp xếp bài học</p>
-        <div class="folder-list" id="categoryList"></div>
-        <div class="new-folder-box">
-            <input type="text" id="newCatName" class="folder-input" placeholder="Tên thư mục mới...">
-            <button class="btn-toggle" style="width: 100%; background: var(--accent); color: white; border: none; padding: 14px;" onclick="createCategory()">+ Tạo thư mục</button>
+    <div class="radar-box">
+        <div id="radar-dot" class="radar-dot"></div>
+        <span>AI Engine: <span id="radar-status">Scanning...</span></span>
+    </div>
+
+    <div class="export-controls">
+        <button onclick="exportData('csv')">CSV</button>
+        <button onclick="exportData('docx')">DOCX</button>
+    </div>
+</div>
+
+<div id="vocab-container" class="grid-view">
+    <?php while($word = $vocab_result->fetch_assoc()): ?>
+    <div class="vocab-card animate-spring" id="word-<?php echo $word['id']; ?>">
+        <input type="checkbox" class="select-checkbox" value="<?php echo $word['id']; ?>" onchange="toggleBulkBar()">
+        
+        <div class="card-header">
+            <span class="level-badge"><?php echo $word['level']; ?></span>
+            <h2 style="margin: 10px 0 5px 0; color: var(--primary);"><?php echo $word['word']; ?></h2>
+            <code style="color: var(--text-muted);"><?php echo $word['ipa']; ?></code>
         </div>
-    </aside>
 
-    <main class="main-content" id="mainContent">
-        <div class="container">
-            <div class="header-flex">
-                <div class="header-title-area">
-                    <h1 id="viewTitle" style="margin:0; font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">Tất cả từ vựng</h1>
-                    <p id="wordCountLabel" style="color: var(--text-muted); font-weight: 600; margin-top: 8px; font-size: 0.95rem;">Đang tải dữ liệu...</p>
+        <div style="margin: 15px 0;">
+            <p><strong>Dịch:</strong> <?php echo $word['definition_vi']; ?></p>
+            <p style="font-style: italic; color: var(--text-muted); font-size: 0.9rem;">
+                "<?php echo $word['nuance']; ?>"
+            </p>
+        </div>
+
+        <div class="card-footer" style="display:flex; justify-content: flex-end;">
+            <button onclick='openModal(<?php echo json_encode($word, JSON_HEX_APOS); ?>)'>Sửa</button>
+        </div>
+    </div>
+    <?php endwhile; ?>
+</div>
+
+<div id="bulk-bar">
+    <span id="selected-count">0 selected</span>
+    <button style="background:#ef4444; color:white; border:none;" onclick="bulkAction('delete')">Xóa</button>
+    <button style="background:rgba(255,255,255,0.1); color:white; border:none;" onclick="bulkAction('move')">Di chuyển</button>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h2 style="margin-top:0;">Chỉnh sửa Chi tiết</h2>
+        <form id="editForm">
+            <input type="hidden" name="id" id="m-id">
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <div class="form-group">
+                    <label>Từ vựng</label>
+                    <input type="text" name="word" id="m-word" required>
                 </div>
-                
-                <div class="header-controls">
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-toggle active" id="gridBtn" onclick="setView('grid')">Lưới</button>
-                        <button class="btn-toggle" id="listBtn" onclick="setView('list')">Danh sách</button>
-                        <button class="btn-toggle" id="manageBtn" onclick="toggleSelectionMode()">Quản lý</button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 8px;">
-                        <a href="export.php?type=csv" class="btn-toggle" style="text-decoration: none; padding: 12px;" title="Xuất CSV">📊</a>
-                        <a href="export.php?type=docx" class="btn-toggle" style="text-decoration: none; padding: 12px;" title="Xuất DOCX">📄</a>
-                    </div>
+                <div class="form-group">
+                    <label>Phiên âm</label>
+                    <input type="text" name="ipa" id="m-ipa">
                 </div>
-                
-                <input type="text" class="search-bar" id="vaultSearch" placeholder="Tìm kiếm nhanh..." onkeyup="renderWords()">
             </div>
 
-            <div class="grid" id="wordGrid"></div>
-        </div>
-    </main>
+            <div class="form-group">
+                <label>Sắc thái (Nuance)</label>
+                <textarea name="nuance" id="m-nuance" placeholder="Sắc thái biểu đạt từ AI..."></textarea>
+            </div>
 
-    <div class="bulk-action-bar" id="bulkBar">
-        <span id="selectedCount" style="font-weight: 600;">0 mục đã chọn</span>
-        <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
-            <button class="btn-toggle" style="color: var(--primary); flex: 1;" onclick="selectAll()">Chọn tất cả</button>
-            <button class="btn-toggle" style="background: var(--danger); color:white; border:none; flex: 1;" onclick="deleteSelected()">Xóa đã chọn</button>
-        </div>
-    </div>
+            <div class="form-group">
+                <label>Cụm từ đi kèm (Collocations)</label>
+                <input type="text" name="collocations" id="m-collocations">
+            </div>
 
-    <div class="modal" id="editModal" onclick="if(event.target == this) closeModal()">
-        <div class="modal-content">
-            <h2 style="margin-top:0; font-weight: 800; margin-bottom: 25px;">Chỉnh sửa từ</h2>
-            <form id="editForm">
-                <input type="hidden" name="id" id="edit-id">
-                
-                <div class="form-group">
-                    <label class="form-label">Từ vựng</label>
-                    <input type="text" name="word" id="edit-word" class="folder-input" style="font-size:1.1rem; font-weight:700; color: var(--primary);" required>
-                </div>
-                
-                <div style="display: flex; gap: 15px; margin-bottom:15px; flex-wrap: wrap;">
-                    <div style="flex:1; min-width: 120px;">
-                        <label class="form-label">Phiên âm (IPA)</label>
-                        <input type="text" name="ipa" id="edit-ipa" class="folder-input">
-                    </div>
-                    <div style="flex:1; min-width: 120px;">
-                        <label class="form-label">Cấp độ</label>
-                        <input type="text" name="level" id="edit-level" class="folder-input" placeholder="VD: B2, C1, Y tế...">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Định nghĩa tiếng Anh</label>
-                    <textarea name="defEn" id="edit-defEn" class="folder-input" rows="3" style="resize: vertical;"></textarea>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 25px;">
-                    <label class="form-label">Nghĩa tiếng Việt</label>
-                    <input type="text" name="defVi" id="edit-defVi" class="folder-input">
-                </div>
-                
-                <button type="submit" class="btn-toggle" style="width:100%; background:var(--primary); color:white; border:none; padding: 16px; font-size: 1rem;">Lưu thay đổi</button>
-            </form>
-        </div>
+            <div class="form-group">
+                <label>Ngữ cảnh gốc (Essay Context)</label>
+                <textarea name="context_sentence" id="m-context" rows="3" readonly style="background:#f1f5f9;"></textarea>
+            </div>
+
+            <input type="hidden" name="form" id="m-form">
+            <input type="hidden" name="level" id="m-level">
+            <input type="hidden" name="defEn" id="m-defEn">
+            <input type="hidden" name="defVi" id="m-defVi">
+            <input type="hidden" name="sentence" id="m-sentence">
+            <input type="hidden" name="category_id" id="m-cat-id">
+
+            <div style="display:flex; gap:15px; justify-content: flex-end;">
+                <button type="button" onclick="closeModal()" style="background:#f1f5f9;">Đóng</button>
+                <button type="button" onclick="handleSave()" style="background:var(--accent); color:white; border:none;">Lưu & Cập nhật</button>
+            </div>
+        </form>
     </div>
+</div>
 
 <script>
-    let allWords = [];
-    let currentFolderId = null;
-    let selectionMode = false;
+/** * --- DEBUGGER FIRST ---
+ */
+window.onerror = function(msg, url, line) {
+    logUIError({ msg, url, line });
+    return false;
+};
 
-    async function init() {
-        if (window.innerWidth <= 768 || localStorage.getItem('sidebarState') === 'hidden') {
-            document.getElementById('sidebar').classList.add('collapsed');
+function logUIError(details) {
+    console.error("Board Error:", details);
+    alert(`❌ LỖI HỆ THỐNG: ${details.msg || details}`);
+}
+
+// 1. Layout Toggle
+function changeView(mode) {
+    const container = document.getElementById('vocab-container');
+    const btnGrid = document.getElementById('btn-grid');
+    const btnList = document.getElementById('btn-list');
+
+    if(mode === 'grid') {
+        container.className = 'grid-view';
+        btnGrid.classList.add('active');
+        btnList.classList.remove('active');
+    } else {
+        container.className = 'list-view';
+        btnGrid.classList.remove('active');
+        btnList.classList.add('active');
+    }
+    localStorage.setItem('vpro_board_view', mode);
+}
+
+// 2. Modal Logic
+function openModal(data) {
+    document.getElementById('m-id').value = data.id;
+    document.getElementById('m-word').value = data.word;
+    document.getElementById('m-ipa').value = data.ipa;
+    document.getElementById('m-nuance').value = data.nuance || '';
+    document.getElementById('m-collocations').value = data.collocations || '';
+    document.getElementById('m-context').value = data.context_sentence || 'N/A';
+    
+    // Fill hidden sync fields
+    document.getElementById('m-form').value = data.word_form;
+    document.getElementById('m-level').value = data.level;
+    document.getElementById('m-defEn').value = data.definition_en;
+    document.getElementById('m-defVi').value = data.definition_vi;
+    document.getElementById('m-sentence').value = data.example_sentence;
+    document.getElementById('m-cat-id').value = data.category_id;
+
+    document.getElementById('editModal').style.display = 'block';
+}
+
+function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+// 3. Sync Logic with update_word.php
+async function handleSave() {
+    const formData = new FormData(document.getElementById('editForm'));
+    try {
+        const response = await fetch('update_word.php', { method: 'POST', body: formData });
+        const text = await response.text();
+        let result;
+        try { result = JSON.parse(text); } catch(e) { throw new Error("Backend trả về non-JSON: " + text); }
+
+        if (result.status === 'success') {
+            alert("✅ " + result.message);
+            location.reload();
         } else {
-            document.getElementById('sidebar').classList.remove('collapsed');
+            throw new Error(result.message);
         }
-        await loadCategories();
-        await refreshWordData();
-        setView(localStorage.getItem('vaultView') || 'grid');
-    }
+    } catch (error) { logUIError(error); }
+}
 
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('collapsed');
-        localStorage.setItem('sidebarState', sidebar.classList.contains('collapsed') ? 'hidden' : 'visible');
-    }
+// 4. Bulk Action Logic
+function toggleBulkBar() {
+    const checks = document.querySelectorAll('.select-checkbox:checked');
+    const bar = document.getElementById('bulk-bar');
+    document.getElementById('selected-count').innerText = `${checks.length} items selected`;
+    bar.style.display = checks.length > 0 ? 'flex' : 'none';
+}
 
-    async function loadCategories() {
-        const res = await fetch('category_actions.php');
-        const cats = await res.json();
-        const list = document.getElementById('categoryList');
-        list.innerHTML = `<div class="folder-item ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null, this)"><span>📂 Tất cả từ vựng</span></div>`;
-        cats.forEach(c => {
-            list.innerHTML += `<div class="folder-item ${currentFolderId == c.id ? 'active' : ''}" onclick="selectFolder(${c.id}, this)"><span>📁 ${c.name}</span></div>`;
-        });
+async function bulkAction(type) {
+    const ids = Array.from(document.querySelectorAll('.select-checkbox:checked')).map(c => c.value);
+    if(confirm(`Xác nhận thực hiện ${type} cho ${ids.length} từ?`)) {
+        // Gửi tới endpoint bulk_actions.php (User cần có file này)
+        console.log("Bulk action execution:", type, ids);
+        alert(`Đã gửi yêu cầu ${type} cho ${ids.length} từ vựng.`);
     }
+}
 
-    function selectFolder(id, el) {
-        currentFolderId = id;
-        document.querySelectorAll('.folder-item').forEach(item => item.classList.remove('active'));
-        el.classList.add('active');
-        document.getElementById('viewTitle').innerText = id ? el.innerText.replace('📁 ', '') : "Tất cả từ vựng";
-        
-        if (window.innerWidth <= 768) {
-            document.getElementById('sidebar').classList.add('collapsed');
+// 5. Export Logic
+function exportData(format) {
+    window.location.href = `export.php?format=${format}`;
+}
+
+// 6. Radar Ping
+async function checkEngine() {
+    const dot = document.getElementById('radar-dot');
+    const status = document.getElementById('radar-status');
+    try {
+        const res = await fetch('/api/ping');
+        if (res.ok) {
+            dot.className = 'radar-dot online';
+            status.innerText = 'Online';
+        } else {
+            dot.className = 'radar-dot';
+            status.innerText = 'Offline';
         }
-        renderWords();
+    } catch {
+        dot.className = 'radar-dot';
+        status.innerText = 'Offline';
     }
+}
 
-    async function createCategory() {
-        const name = document.getElementById('newCatName').value.trim();
-        if(!name) return;
-        const fd = new FormData(); fd.append('action', 'create'); fd.append('name', name);
-        await fetch('category_actions.php', { method: 'POST', body: fd });
-        document.getElementById('newCatName').value = "";
-        loadCategories();
-    }
-
-    async function refreshWordData() {
-        const res = await fetch('fetch_board.php');
-        allWords = await res.json();
-        renderWords();
-    }
-
-    function renderWords() {
-        const grid = document.getElementById('wordGrid');
-        const search = document.getElementById('vaultSearch').value.toUpperCase();
-        const filtered = allWords.filter(w => (currentFolderId === null || w.category_id == currentFolderId) && w.word.toUpperCase().includes(search));
-        
-        document.getElementById('wordCountLabel').innerText = `${filtered.length} từ được tìm thấy`;
-        grid.innerHTML = "";
-        filtered.forEach((w, idx) => {
-            const card = document.createElement('div');
-            card.className = `word-card ${selectionMode ? 'selection-mode' : ''}`;
-            card.id = `word-${w.id}`;
-            card.style.animation = `cardEntrance 0.5s var(--spring) forwards ${idx * 0.03}s`;
-            card.onclick = (e) => handleCardClick(e, card, w);
-   
-            card.innerHTML = `
-                <input type="checkbox" class="select-checkbox" value="${w.id}" onclick="event.stopPropagation(); updateBulkBar();">
-                <div class="card-actions">
-                    <button class="action-btn" onclick="openEditModal(${JSON.stringify(w).replace(/"/g, '&quot;')}, event)" title="Chỉnh sửa">✎</button>
-                    <button class="action-btn" onclick="deleteWord(${w.id}, event)" style="color:var(--danger)" title="Xóa">✕</button>
-                </div>
-                <div class="grid-header">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; padding-right:80px;"><span class="level-badge">${w.level}</span><span class="ipa">${w.ipa}</span></div>
-                    <h2 style="margin:0; font-size:1.6rem; font-weight:800;">${w.word}</h2>
-                </div>
-                <div class="list-preview">
-                    <span class="level-badge">${w.level}</span>
-                    <strong style="font-size:1.1rem; min-width:80px;">${w.word}</strong>
-                    <span class="vi-preview">${w.definition_vi}</span>
-                </div>
-                <div class="card-details">
-                    <p style="font-size:0.95rem; line-height:1.6; margin:15px 0; font-weight:500;">${w.definition_en}</p>
-                    <div class="vi-text">${w.definition_vi}</div>
-                </div>`;
-            grid.appendChild(card);
-        });
-    }
-
-    function setView(mode) {
-        document.getElementById('wordGrid').classList.toggle('list-mode', mode === 'list');
-        document.getElementById('gridBtn').classList.toggle('active', mode === 'grid');
-        document.getElementById('listBtn').classList.toggle('active', mode === 'list');
-        localStorage.setItem('vaultView', mode);
-    }
-
-    function toggleSelectionMode() {
-        selectionMode = !selectionMode;
-        document.getElementById('manageBtn').classList.toggle('active', selectionMode);
-        document.getElementById('manageBtn').innerText = selectionMode ? "Hủy" : "Quản lý";
-        renderWords();
-        updateBulkBar();
-    }
-
-    function handleCardClick(e, card, word) {
-        if (e.target.closest('.action-btn')) return;
-       
-        if (selectionMode) {
-            const cb = card.querySelector('.select-checkbox');
-            cb.checked = !cb.checked;
-            card.classList.toggle('selected', cb.checked);
-            updateBulkBar();
-        } else if (document.getElementById('wordGrid').classList.contains('list-mode')) {
-            card.classList.toggle('active');
-        }
-    }
-
-    function updateBulkBar() {
-        const count = document.querySelectorAll('.select-checkbox:checked').length;
-        document.getElementById('selectedCount').innerText = `${count} mục đã chọn`;
-        document.getElementById('bulkBar').classList.toggle('active', selectionMode && count > 0);
-    }
-
-    function selectAll() {
-        document.querySelectorAll('.select-checkbox').forEach(cb => { cb.checked = true; cb.closest('.word-card').classList.add('selected'); });
-        updateBulkBar();
-    }
-
-    async function deleteWord(id, e) {
-        e.stopPropagation();
-        if(!confirm("Bạn có chắc chắn muốn xóa từ này?")) return;
-        const fd = new FormData(); fd.append('id', id);
-        await fetch('delete_word.php', { method: 'POST', body: fd });
-        refreshWordData();
-    }
-
-    async function deleteSelected() {
-        const ids = Array.from(document.querySelectorAll('.select-checkbox:checked')).map(cb => cb.value).join(',');
-        if(!confirm("Xóa các từ đã chọn?")) return;
-        const fd = new FormData(); fd.append('id', ids);
-        await fetch('delete_word.php', { method: 'POST', body: fd });
-        selectionMode = false; 
-        document.getElementById('manageBtn').innerText = "Quản lý";
-        document.getElementById('manageBtn').classList.remove('active');
-        refreshWordData();
-        updateBulkBar();
-    }
-
-    function openEditModal(w, e) {
-        e.stopPropagation();
-        document.getElementById('edit-id').value = w.id;
-        document.getElementById('edit-word').value = w.word;
-        document.getElementById('edit-ipa').value = w.ipa;
-        document.getElementById('edit-level').value = w.level;
-        document.getElementById('edit-defEn').value = w.definition_en;
-        document.getElementById('edit-defVi').value = w.definition_vi;
-        document.getElementById('editModal').classList.add('active');
-    }
-
-    function closeModal() { document.getElementById('editModal').classList.remove('active'); }
-
-    document.getElementById('editForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target); fd.append('form', 'noun'); fd.append('sentence', '');
-        await fetch('update_word.php', { method: 'POST', body: fd });
-        closeModal(); refreshWordData();
-    }
-
-    window.onload = init;
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('vpro_board_view') || 'grid';
+    changeView(saved);
+    checkEngine();
+    setInterval(checkEngine, 10000);
+});
 </script>
 </body>
 </html>

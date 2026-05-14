@@ -6,328 +6,305 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Trắc nghiệm thông minh | Vocab AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root {
-            --primary: #1e293b;
-            --accent: #10b981; 
-            --danger: #ef4444;
-            --bg: #f8fafc; 
-            --border: #e2e8f0; 
-            --text-muted: #64748b;
-            --transition: cubic-bezier(0.4, 0, 0.2, 1);
+            --primary: #1e293b; --accent: #10b981; --danger: #ef4444;
+            --bg: #f8fafc; --border: #e2e8f0; --text-muted: #64748b;
+            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        body { 
-            font-family: 'Be Vietnam Pro', sans-serif; 
-            background: var(--bg); 
-            margin: 0; 
-            padding: 40px;
-            color: var(--primary); 
-            overflow-x: hidden; 
+        body { font-family: 'Be Vietnam Pro', sans-serif; background: var(--bg); margin: 0; padding: 40px; color: var(--primary); }
+        .container { max-width: 700px; margin: 40px auto; }
+
+        /* --- STATUS BADGE --- */
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; 
+            border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 25px;
+            background: white; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+        }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; transition: 0.3s; }
+        .status-online { background: var(--accent); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+        .status-offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); }
+
+        .card { 
+            background: white; padding: 50px; border-radius: 35px; 
+            border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.04);
+            position: relative; animation: slideUp 0.6s var(--spring);
         }
 
-        /* --- ENTRANCE ANIMATIONS --- */
-        @keyframes slideUp { 
-            from { opacity: 0; transform: translateY(30px); } 
-            to { opacity: 1; transform: translateY(0); } 
-        }
-        .animate-in { 
-            animation: slideUp 0.6s var(--transition) forwards; 
-        }
+        /* --- PROGRESS BAR --- */
+        .progress-container { width: 100%; height: 8px; background: #f1f5f9; border-radius: 10px; margin-bottom: 40px; overflow: hidden; }
+        #progressBar { height: 100%; width: 0%; background: var(--accent); transition: 0.6s var(--spring); }
 
-        /* --- QUIZ UI --- */
-        .container { 
-            max-width: 600px;
-            margin: 60px auto 0 auto; 
-        }
-        .quiz-card { 
-            background: white; 
-            padding: 45px;
-            border-radius: 35px; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.03); 
-            border: 1px solid var(--border); 
-            position: relative;
-        }
+        .quiz-title { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 10px; }
         
-        .progress-container { 
-            width: 100%;
-            background: #f1f5f9; 
-            height: 10px; 
-            border-radius: 20px; 
-            margin-bottom: 35px; 
-            overflow: hidden;
-        }
-        .progress-bar { 
-            height: 100%; 
-            background: linear-gradient(90deg, #10b981, #34d399); 
-            width: 0%;
-            transition: width 0.5s var(--transition); 
+        .sentence-display { font-size: 1.5rem; line-height: 1.6; font-weight: 600; margin-bottom: 25px; color: #334155; }
+        .sentence-display b { color: var(--accent); border-bottom: 3px dashed var(--accent); padding: 0 5px; }
+
+        /* --- HINT SYSTEM --- */
+        #hintContainer { margin-bottom: 30px; text-align: center; }
+        #wordHint { 
+            background: #eff6ff; color: #3b82f6; padding: 12px 24px; border-radius: 18px; 
+            font-weight: 700; font-size: 0.95rem; border: 1px dashed #bfdbfe;
+            display: inline-block;
         }
 
-        .question-box { 
-            min-height: 150px; 
-            text-align: center; 
-            margin-bottom: 35px;
-            transition: 0.3s; 
+        input#answerInput {
+            width: 100%; padding: 22px; border-radius: 20px; border: 2px solid var(--border);
+            font-size: 1.25rem; font-family: inherit; font-weight: 700; outline: none;
+            text-align: center; transition: 0.3s; margin-bottom: 25px; box-sizing: border-box;
         }
-        .sentence-text { 
-            font-size: 1.5rem; 
-            line-height: 1.6; 
-            font-weight: 600; 
-            color: #334155;
-            letter-spacing: -0.5px;
-        }
-        .sentence-text span { 
-            color: var(--accent); 
-            border-bottom: 3px dashed var(--accent); 
-            padding: 0 8px;
-            background: #f0fdf4; 
-            border-radius: 6px; 
-        }
+        input#answerInput:focus { border-color: var(--accent); background: #f0fdf4; transform: scale(1.01); }
 
-        .options { 
-            display: grid; 
-            gap: 15px;
+        .btn-check {
+            width: 100%; padding: 20px; border-radius: 18px; border: none;
+            background: var(--primary); color: white; font-weight: 800; font-size: 1.1rem;
+            cursor: pointer; transition: 0.3s var(--spring);
         }
-        .option { 
-            padding: 22px;
-            border: 2px solid var(--border); 
-            border-radius: 20px; 
-            cursor: pointer; 
-            transition: 0.3s var(--transition); 
-            font-weight: 700; 
-            text-align: center; 
-            font-size: 1.1rem;
-            background: white;
-            font-family: inherit;
+        .btn-check:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .btn-check:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* --- FEEDBACK & RESULTS --- */
+        .feedback { display: none; margin-top: 25px; padding: 25px; border-radius: 20px; font-weight: 700; text-align: center; animation: slideUp 0.4s var(--spring); }
+        .correct { background: #ecfdf5; color: #059669; border: 1px solid #dcfce7; }
+        .wrong { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
+
+        #resultScreen { display: none; text-align: center; }
+        .score-circle { width: 140px; height: 140px; border-radius: 50%; border: 10px solid var(--accent); margin: 0 auto 30px auto; display: flex; align-items: center; justify-content: center; font-size: 2.8rem; font-weight: 800; color: var(--accent); }
+
+        /* --- DEBUGGER --- */
+        #debuggerArea {
+            display: none; background: #0f172a; color: #38bdf8; padding: 25px;
+            border-radius: 20px; margin-top: 30px; font-family: 'Courier New', monospace; font-size: 0.8rem;
         }
-        .option:hover { 
-            transform: translateY(-3px); 
-            border-color: var(--accent); 
-            background: #f0fdf4;
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.05);
-        }
-        .option.correct { 
-            background: var(--accent) !important; 
-            color: white; 
-            border-color: var(--accent); 
-            transform: scale(1.02);
-        }
-        .option.wrong { 
-            background: var(--danger) !important; 
-            color: white; 
-            border-color: var(--danger); 
-            animation: shake 0.4s;
-        }
+        .debug-label { color: var(--danger); font-weight: bold; margin-bottom: 8px; display: block; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
-        }
-
-        #nextBtn { 
-            margin-top: 35px;
-            width: 100%; 
-            padding: 20px; 
-            border-radius: 18px; 
-            border: none; 
-            background: var(--primary); 
-            color: white; 
-            cursor: pointer; 
-            font-weight: 800; 
-            font-size: 1.05rem;
-            display: none;
-            transition: 0.3s var(--transition);
-        }
-        #nextBtn:hover { 
-            background: #0f172a;
-            transform: translateY(-3px); 
-            box-shadow: 0 12px 24px rgba(30, 41, 59, 0.15);
-        }
-
-        /* --- RESULTS --- */
-        #resultScreen { 
-            display: none;
-            text-align: center; 
-            animation: slideUp 0.8s var(--transition); 
-        }
-        .score-circle { 
-            width: 180px;
-            height: 180px; 
-            border-radius: 50%; 
-            border: 12px solid var(--accent); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 3.5rem; 
-            font-weight: 800;
-            margin: 35px auto; 
-            color: var(--primary);
-            background: #f0fdf4;
-            box-shadow: 0 15px 30px rgba(16, 185, 129, 0.1);
-        }
-
-        @media (max-width: 600px) {
-            body { padding: 20px; padding-top: 60px; }
-            .quiz-card { padding: 30px 20px; }
-            .sentence-text { font-size: 1.3rem; }
-        }
+        @media (max-width: 600px) { body { padding: 20px; } .card { padding: 30px; } .sentence-display { font-size: 1.2rem; } }
     </style>
 </head>
 <body>
 
     <?php include 'nav.php'; ?>
 
-    <div class="container animate-in">
-        <div class="quiz-card">
-            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">
-                <span id="qCountText">Câu hỏi 1 / 10</span>
-                <span id="scoreText">Độ chính xác: 0%</span>
-            </div>
-         
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar"></div>
+    <div class="container">
+        <div class="status-badge">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Đang kiểm tra AI Engine...</span>
+        </div>
+
+        <div class="card" id="quizCard">
+            <div id="loader" style="text-align:center; padding: 60px 0;">
+                <p style="font-weight:700; color:var(--text-muted); animation: pulse 1.5s infinite;">Gemini đang soạn câu hỏi cho bạn...</p>
             </div>
 
-            <div id="quizContent">
-                <div class="question-box">
-                    <div id="loadingMsg" style="color: var(--text-muted); font-weight: 600; font-size: 1.1rem;">Gemini đang soạn câu hỏi... 🧠</div>
-                    <div class="sentence-text" id="sentenceText"></div>
+            <div id="quizContent" style="display:none;">
+                <div class="progress-container"><div id="progressBar"></div></div>
+                <div class="quiz-title" id="questionCounter">Câu hỏi 1 / 10</div>
+                
+                <div class="sentence-display" id="sentenceText"></div>
+
+                <div id="hintContainer">
+                    <span id="wordHint">Gợi ý: Đang tải...</span>
                 </div>
-                <div class="options" id="optionsBox"></div>
-                <button id="nextBtn" onclick="nextQuestion()">Câu tiếp theo →</button>
+
+                <div id="inputArea">
+                    <input type="text" id="answerInput" placeholder="Nhập từ vựng..." autocomplete="off">
+                    <button class="btn-check" onclick="checkAnswer()" id="checkBtn">Kiểm tra đáp án</button>
+                </div>
+
+                <div id="feedbackBox" class="feedback"></div>
+                <button class="btn-check" id="nextBtn" style="display:none; margin-top: 20px; background: var(--accent);" onclick="loadNextQuestion()">Tiếp tục →</button>
             </div>
 
             <div id="resultScreen">
-                <h2 style="font-size: 2.2rem; font-weight: 800; letter-spacing: -1px;">Hoàn thành thử thách!</h2>
                 <div class="score-circle" id="finalScore">0%</div>
-                <p id="resultComment" style="color: var(--text-muted); margin-bottom: 35px; font-weight: 600; font-size: 1.1rem;"></p>
-                <div id="xpAlert" style="display:none; color: var(--accent); font-weight: 900; margin-bottom: 35px; font-size: 1.3rem;">🏆 XUẤT SẮC! ĐÃ NHẬN +50 XP</div>
-                <button onclick="location.reload()" class="option" style="width: 100%; background: var(--primary); color: white; border: none;">Làm lại thử thách</button>
-                <a href="index.php" style="display: block; margin-top: 25px; color: var(--text-muted); text-decoration: none; font-weight: 700; font-size: 0.95rem;">Quay lại Bảng điều khiển</a>
+                <h2 style="font-weight:800; letter-spacing: -1px;">Thử thách hoàn tất!</h2>
+                <p id="resultMsg" style="color:var(--text-muted); font-weight:500; margin-bottom:35px;"></p>
+                
+                <div id="xpAlert" style="display:none; background:#ecfdf5; color:#10b981; padding:20px; border-radius:20px; margin-bottom:30px; font-weight:800;">
+                    ✨ Tuyệt vời! Bạn nhận được +50 XP ⚡
+                </div>
+
+                <button class="btn-check" onclick="window.location.href='study.php'">Quay lại Trung tâm học tập</button>
             </div>
+        </div>
+
+        <div id="debuggerArea">
+            <span class="debug-label">⚠️ DEBUGGER:</span>
+            <div id="debugContent"></div>
+            <pre id="debugRaw" style="background:#1e293b; padding:15px; border-radius:10px; margin-top:10px; white-space: pre-wrap; font-size: 0.75rem; color: #94a3b8;"></pre>
         </div>
     </div>
 
 <script>
+    const API_URL = '/api';
     let quizWords = [];
     let currentIdx = 0;
     let score = 0;
     const TOTAL_Q = 10;
-    let currentWord = null;
 
-    async function initQuiz() {
-        const res = await fetch('fetch_board.php');
-        quizWords = await res.json();
-  
-        if (quizWords.length < 4) {
-            alert("Kho từ vựng quá ít! Thêm ít nhất 4 từ để bắt đầu thử thách.");
-            window.location.href = "index.php";
-            return;
+    // --- 1. KIỂM TRA KẾT NỐI AI ---
+    async function checkAI() {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        try {
+            const res = await fetch(`${API_URL}/health`);
+            if (res.ok) {
+                dot.className = "status-dot status-online";
+                text.innerText = "AI Engine: Sẵn sàng";
+                loadQuizData();
+            } else { throw new Error(); }
+        } catch (e) {
+            dot.className = "status-dot status-offline";
+            text.innerText = "AI Engine: Mất kết nối";
+            showDebugger({message: "Lỗi kết nối tới Flask Backend", raw: e});
         }
-        nextQuestion();
+    }
+    checkAI();
+
+    // --- 2. LẤY DỮ LIỆU TỪ DATABASE ---
+    async function loadQuizData() {
+        try {
+            const res = await fetch('fetch_board.php');
+            const data = await res.json();
+            
+            // Lấy ngẫu nhiên tối đa 10 từ từ danh sách SRS
+            quizWords = data.sort(() => 0.5 - Math.random()).slice(0, TOTAL_Q);
+            
+            if (quizWords.length === 0) {
+                document.getElementById('loader').innerHTML = "<p>Kho từ vựng trống. Hãy thêm từ trước khi làm trắc nghiệm!</p>";
+                return;
+            }
+            loadNextQuestion();
+        } catch (e) {
+            showDebugger({message: "Không thể lấy từ vựng từ Database", raw: e});
+        }
     }
 
-    async function nextQuestion() {
-        if (currentIdx >= Math.min(TOTAL_Q, quizWords.length)) {
+    // --- 3. HIỂN THỊ CÂU HỎI ---
+    async function loadNextQuestion() {
+        if (currentIdx >= quizWords.length) {
             showResults();
             return;
         }
 
+        const wordObj = quizWords[currentIdx];
+        
+        // Reset UI cho câu hỏi mới
+        document.getElementById('loader').style.display = "block";
+        document.getElementById('quizContent').style.display = "none";
+        document.getElementById('feedbackBox').style.display = "none";
         document.getElementById('nextBtn').style.display = "none";
-        document.getElementById('sentenceText').innerHTML = "";
-        document.getElementById('optionsBox').innerHTML = "";
-        document.getElementById('loadingMsg').style.display = "block";
+        document.getElementById('inputArea').style.display = "block";
+        document.getElementById('answerInput').value = "";
+        document.getElementById('checkBtn').disabled = false;
 
-        currentWord = quizWords[currentIdx];
-        currentIdx++;
-        
-        document.getElementById('qCountText').innerText = `Câu hỏi ${currentIdx} / ${Math.min(TOTAL_Q, quizWords.length)}`;
-        document.getElementById('progressBar').style.width = (currentIdx / Math.min(TOTAL_Q, quizWords.length) * 100) + "%";
-        
         try {
-            const res = await fetch(`/api/quiz-sentence?word=${encodeURIComponent(currentWord.word)}`);
+            const res = await fetch(`${API_URL}/quiz-sentence?word=${encodeURIComponent(wordObj.word)}`);
             const data = await res.json();
-            
-            document.getElementById('loadingMsg').style.display = "none";
-            document.getElementById('sentenceText').innerHTML = `"${data.sentence.replace('_____', '<span>_____</span>')}"`;
-            
-            let choices = [currentWord.word];
-            while (choices.length < 4) {
-                let r = quizWords[Math.floor(Math.random() * quizWords.length)].word;
-                if (!choices.includes(r)) choices.push(r);
+            if (!res.ok) throw data;
+
+            let sentence = data.sentence;
+
+            // BẢO VỆ DỰ PHÒNG: Tự động đục lỗ nếu AI quên
+            const regex = new RegExp(wordObj.word, 'gi'); 
+            if (!sentence.includes('_____')) {
+                sentence = sentence.replace(regex, '_____');
             }
-            choices.sort(() => Math.random() - 0.5);
+
+            // Hiển thị gợi ý dựa trên từ thực tế trong DB
+            const formText = wordObj.word_form ? `(${wordObj.word_form})` : '';
+            document.getElementById('wordHint').innerText = `Gợi ý: ${wordObj.definition_vi} ${formText}`;
+
+            // Hiển thị câu hỏi
+            document.getElementById('sentenceText').innerHTML = sentence.replace('_____', '<b>_____</b>');
+            document.getElementById('questionCounter').innerText = `Câu hỏi ${currentIdx + 1} / ${quizWords.length}`;
+            document.getElementById('progressBar').style.width = `${(currentIdx / quizWords.length) * 100}%`;
             
-            choices.forEach((c, index) => {
-                const b = document.createElement('div');
-                b.className = "option";
-                b.style.animation = `slideUp 0.4s var(--transition) forwards ${0.08 * index}s`;
-                b.style.opacity = "0";
-                b.innerText = c;
-                b.onclick = () => checkAnswer(b, c);
-                document.getElementById('optionsBox').appendChild(b);
-            });
-        } catch(e) { 
-            console.error("Quiz Error", e);
-            document.getElementById('loadingMsg').innerText = "AI đang ngoại tuyến. Đang dùng câu hỏi dự phòng...";
-            document.getElementById('sentenceText').innerText = `Nghĩa của từ này là gì: ${currentWord.definition_en}`;
+            document.getElementById('loader').style.display = "none";
+            document.getElementById('quizContent').style.display = "block";
+            document.getElementById('answerInput').focus();
+
+        } catch (e) {
+            showDebugger({message: `Lỗi AI khi tạo câu hỏi cho từ "${wordObj.word}"`, raw: e});
         }
     }
 
-    async function checkAnswer(btn, selected) {
-        const options = document.querySelectorAll('.option');
-        options.forEach(o => o.onclick = null); 
-
-        const is_correct = (selected === currentWord.word);
-        if (is_correct) {
-            btn.classList.add('correct');
+    // --- 4. KIỂM TRA ĐÁP ÁN ---
+    function checkAnswer() {
+        const userAns = document.getElementById('answerInput').value.trim().toLowerCase();
+        const correctAns = quizWords[currentIdx].word.toLowerCase();
+        const feedback = document.getElementById('feedbackBox');
+        
+        const isCorrect = (userAns === correctAns);
+        
+        if (isCorrect) {
             score++;
+            feedback.className = "feedback correct";
+            feedback.innerText = "Chính xác! ✨";
         } else {
-            btn.classList.add('wrong');
-            options.forEach(o => { if(o.innerText === currentWord.word) o.classList.add('correct'); });
+            feedback.className = "feedback wrong";
+            feedback.innerText = `Chưa đúng. Đáp án chính xác là: ${quizWords[currentIdx].word}`;
         }
 
-        // --- CẬP NHẬT SRS HẬU TRƯỜNG ---
+        feedback.style.display = "block";
+        document.getElementById('inputArea').style.display = "none";
+        document.getElementById('nextBtn').style.display = "block";
+
+        // Cập nhật SRS vào Database
         const srsData = new FormData();
-        srsData.append('id', currentWord.id);
-        srsData.append('is_correct', is_correct);
+        srsData.append('id', quizWords[currentIdx].id);
+        srsData.append('is_correct', isCorrect);
         fetch('update_srs.php', { method: 'POST', body: srsData });
 
-        document.getElementById('scoreText').innerText = `Độ chính xác: ${Math.round((score/currentIdx)*100)}%`;
-        document.getElementById('nextBtn').style.display = "block";
+        currentIdx++;
     }
 
+    // --- 5. HIỂN THỊ KẾT QUẢ CUỐI CÙNG ---
     function showResults() {
         document.getElementById('quizContent').style.display = "none";
         document.getElementById('resultScreen').style.display = "block";
-        const percent = Math.round((score / Math.min(TOTAL_Q, quizWords.length)) * 100);
+        document.getElementById('progressBar').style.width = "100%";
+
+        const percent = Math.round((score / quizWords.length) * 100);
         document.getElementById('finalScore').innerText = percent + "%";
         
-        let comment = "";
         if (percent === 100) {
-            comment = "Tuyệt vời! Bạn đã làm chủ hoàn toàn các từ vựng này.";
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#1e293b'] });
+            document.getElementById('resultMsg').innerText = "Thật không thể tin nổi! Bạn đã thuộc lòng toàn bộ.";
             document.getElementById('xpAlert').style.display = "block";
+            
             const fd = new FormData();
             fd.append('amount', 50);
             fetch('reward_xp.php', { method: 'POST', body: fd });
-        } else if (percent >= 80) {
-            comment = "Rất tốt! Bạn đang tiến bộ rất nhanh.";
-        } else if (percent >= 50) {
-            comment = "Khá tốt! Hãy ôn tập thêm một chút nhé.";
+            
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#1e293b'] });
+        } else if (percent >= 70) {
+            document.getElementById('resultMsg').innerText = "Làm tốt lắm! Bạn đang tiến bộ rất nhanh.";
         } else {
-            comment = "Đừng nản lòng! Luyện tập nhiều hơn sẽ giúp bạn ghi nhớ.";
+            document.getElementById('resultMsg').innerText = "Đừng nản lòng, luyện tập thêm để ghi nhớ sâu hơn nhé!";
         }
-        document.getElementById('resultComment').innerText = comment;
     }
 
-    window.onload = initQuiz;
+    function showDebugger(err) {
+        const area = document.getElementById('debuggerArea');
+        area.style.display = "block";
+        document.getElementById('debugContent').innerText = err.message;
+        document.getElementById('debugRaw').innerText = typeof err.raw === 'object' ? JSON.stringify(err.raw, null, 2) : err.raw;
+    }
+
+    // Hỗ trợ nhấn Enter để kiểm tra
+    document.getElementById('answerInput')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            if (document.getElementById('inputArea').style.display !== 'none') checkAnswer();
+            else if (document.getElementById('nextBtn').style.display !== 'none') loadNextQuestion();
+        }
+    });
 </script>
 </body>
 </html>

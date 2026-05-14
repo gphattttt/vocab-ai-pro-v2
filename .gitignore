@@ -1,1 +1,5 @@
+mail_helper.php
 vendor/
+db.php
+login.php
+venv/

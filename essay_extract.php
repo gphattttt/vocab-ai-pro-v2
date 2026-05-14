@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// --- NEW FIX: Kick logged-out users back to the login page ---
+// Bảo mật: Đảm bảo người dùng đã đăng nhập
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
@@ -12,95 +12,116 @@ if (!isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trích xuất từ vựng AI | Vocab AI Pro</title>
+    <title>AI Writing Coach | Vocab AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b; --accent: #10b981; --bg: #f8fafc;
-            --border: #e2e8f0; --text-muted: #64748b; --danger: #ef4444;
+            --primary: #1e293b;
+            --accent: #10b981; 
+            --bg: #f8fafc;
+            --border: #e2e8f0; 
+            --text-muted: #64748b; 
+            --danger: #ef4444;
+            --warning: #f59e0b;
             --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        body { font-family: 'Be Vietnam Pro', sans-serif; background: var(--bg); margin: 0; padding: 40px; color: var(--primary); box-sizing: border-box; }
+        body { 
+            font-family: 'Be Vietnam Pro', sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 40px; 
+            color: var(--primary); 
+            box-sizing: border-box; 
+        }
+
         .container { max-width: 900px; margin: 20px auto; width: 100%; }
+
+        @keyframes springUp {
+            0% { opacity: 0; transform: scale(0.9) translateY(40px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-spring { animation: springUp 0.7s var(--spring) forwards; }
 
         /* --- AI STATUS BADGE --- */
         .status-badge {
             display: inline-flex; align-items: center; gap: 8px;
-            padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;
+            padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;
             font-weight: 700; margin-bottom: 25px; border: 1px solid var(--border);
-            background: white; transition: 0.3s;
+            background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.02);
         }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; }
-        .status-online { background: var(--accent); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
-        .status-offline { background: var(--danger); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; transition: 0.3s; }
+        .status-online { background: var(--accent); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+        .status-offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); }
 
-        /* --- UI ELEMENTS --- */
-        .card { background: white; padding: 40px; border-radius: 30px; border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.02); box-sizing: border-box; }
+        .card { 
+            background: white; padding: 45px; border-radius: 35px; 
+            border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.04); 
+            box-sizing: border-box; margin-bottom: 30px;
+        }
         
-        .page-title { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; }
-        .page-subtitle { color: var(--text-muted); font-weight: 500; margin-bottom: 30px; line-height: 1.5; font-size: 1.05rem; }
+        .page-title { margin: 0 0 10px 0; font-weight: 800; font-size: 2.5rem; letter-spacing: -1px; }
+        .page-subtitle { color: var(--text-muted); font-weight: 500; margin-bottom: 35px; font-size: 1.1rem; }
 
         textarea {
-            width: 100%; border-radius: 20px; border: 2px solid var(--border);
+            width: 100%; border-radius: 24px; border: 2px solid var(--border);
             padding: 25px; font-family: inherit; font-size: 1.05rem; box-sizing: border-box;
-            outline: none; transition: 0.3s; resize: vertical; min-height: 250px;
+            outline: none; transition: 0.3s; resize: vertical; min-height: 280px;
         }
         textarea:focus { border-color: var(--accent); background: #f0fdf4; }
 
         .controls { display: flex; gap: 15px; align-items: center; margin-top: 25px; flex-wrap: wrap; }
-        
-        /* Custom Input for dynamic prompts */
-        .input-group { flex: 1; display: flex; align-items: center; gap: 15px; width: 100%; }
-        .input-label { font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
         .custom-input { 
-            width: 100%; padding: 14px 20px; border-radius: 14px; 
+            flex: 1; padding: 16px 20px; border-radius: 16px; 
             border: 1px solid var(--border); font-family: inherit; 
-            font-weight: 600; font-size: 1rem; outline: none; transition: 0.3s; box-sizing: border-box;
+            font-weight: 600; font-size: 1rem; outline: none; transition: 0.3s;
         }
         .custom-input:focus { border-color: var(--accent); }
 
         .btn-extract {
-            background: var(--primary); color: white; border: none; padding: 15px 35px;
-            border-radius: 14px; cursor: pointer; font-weight: 700; font-size: 1.05rem; transition: 0.3s var(--spring);
-            display: flex; align-items: center; justify-content: center; gap: 10px; white-space: nowrap;
+            background: var(--primary); color: white; border: none; padding: 18px 35px;
+            border-radius: 18px; cursor: pointer; font-weight: 800; font-size: 1.05rem; 
+            transition: 0.3s var(--spring); display: flex; align-items: center; justify-content: center; gap: 10px;
         }
-        .btn-extract:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .btn-extract:hover:not(:disabled) { transform: translateY(-4px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
         .btn-extract:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* --- RESULTS --- */
+        /* --- AI COACH SECTION --- */
+        .coach-container { display: none; margin-top: 40px; }
+        .coach-card {
+            background: #f1f5f9; border-radius: 28px; padding: 35px;
+            border: 1px solid var(--border); margin-bottom: 30px;
+        }
+        .coach-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .coach-avatar { width: 45px; height: 45px; border-radius: 14px; background: var(--accent); color: white; 
+                       display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .summary-text { font-size: 1.1rem; line-height: 1.7; font-weight: 500; color: #334155; margin-bottom: 25px; white-space: pre-wrap; }
+        
+        .pros-cons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .pc-item { padding: 20px; border-radius: 20px; background: white; border: 1px solid var(--border); }
+        .pc-title { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
+        .pc-list { margin: 0; padding-left: 20px; font-size: 0.9rem; line-height: 1.6; color: #475569; }
+
+        /* --- VOCABULARY RESULTS --- */
         .result-item {
-            background: white; padding: 20px 25px; border-radius: 20px; border: 1px solid var(--border);
+            background: white; padding: 25px; border-radius: 24px; border: 1px solid var(--border);
             margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
-            animation: slideIn 0.4s var(--spring) forwards; flex-wrap: wrap; gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s;
         }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        .result-item:hover { border-color: var(--accent); transform: translateX(5px); }
 
-        .word-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
-        .word-text { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
-        .tag { font-size: 0.7rem; background: #f1f5f9; padding: 5px 12px; border-radius: 8px; font-weight: 800; text-transform: uppercase; color: var(--primary); }
-        .folder-tag { background: #ecfdf5; color: #059669; border: 1px solid #dcfce7; white-space: nowrap; }
-        .def-vi-text { font-size: 0.95rem; color: #1e40af; font-weight: 600; }
-
-        .error-box {
-            display: none; background: #fef2f2; color: #ef4444; padding: 16px 25px;
-            border-radius: 16px; margin-top: 20px; font-weight: 600; border: 1px solid #fee2e2; line-height: 1.5;
+        /* --- DEBUGGER SYSTEM --- */
+        #debuggerArea {
+            display: none; background: #0f172a; color: #38bdf8; padding: 25px;
+            border-radius: 20px; margin-top: 30px; font-family: 'Courier New', monospace;
+            font-size: 0.8rem; line-height: 1.5; overflow-x: auto; border: 2px solid #1e293b;
         }
+        .debug-label { color: #ef4444; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; display: block; }
 
-        /* --- MOBILE RESPONSIVENESS --- */
         @media (max-width: 768px) {
-            body { padding: 20px; }
-            .card { padding: 25px; border-radius: 24px; }
-            .page-title { font-size: 1.8rem; }
-            
-            textarea { padding: 20px; font-size: 1rem; min-height: 200px; }
-            
-            .controls { flex-direction: column; align-items: stretch; gap: 20px; }
-            .input-group { flex-direction: column; align-items: flex-start; gap: 8px; }
-            .btn-extract { width: 100%; padding: 18px; }
-            
-            .result-item { flex-direction: column; align-items: flex-start; }
-            .folder-tag { align-self: flex-start; }
+            body { padding: 20px; padding-top: 60px; }
+            .pros-cons-grid { grid-template-columns: 1fr; }
+            .page-title { font-size: 2rem; }
         }
     </style>
 </head>
@@ -108,159 +129,170 @@ if (!isset($_SESSION['user_id'])) {
 
     <?php include 'nav.php'; ?>
 
-    <div class="container">
-        <div class="status-badge" id="aiStatus">
+    <div class="container animate-spring">
+        <div class="status-badge">
             <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Đang kiểm tra kết nối AI...</span>
+            <span id="statusText">Đang kiểm tra AI Engine...</span>
         </div>
 
         <div class="card">
-            <h1 class="page-title">Trích xuất từ vựng</h1>
-            <p class="page-subtitle">Tự động phân tích và phân loại từ vựng nâng cao từ bài viết của bạn chỉ trong vài giây.</p>
+            <h1 class="page-title">AI Writing Coach</h1>
+            <p class="page-subtitle">Nhận xét chuyên sâu và trích xuất từ vựng học thuật từ bài viết của bạn.</p>
 
-            <textarea id="essayInput" placeholder="Dán bài tiểu luận, bài báo hoặc đoạn văn của bạn vào đây..."></textarea>
+            <textarea id="essayInput" placeholder="Dán bài luận hoặc đoạn văn tiếng Anh của bạn tại đây..."></textarea>
             
-            <div id="errorMessage" class="error-box"></div>
-
             <div class="controls">
-                <div class="input-group">
-                    <label class="input-label">Mục tiêu:</label>
-                    <input type="text" id="customReq" class="custom-input" 
-                           placeholder="VD: Từ vựng IELTS 8.0, Y khoa, Cụm động từ..." 
-                           value="Từ vựng cấp độ C1">
-                </div>
+                <input type="text" id="customReq" class="custom-input" placeholder="Yêu cầu: IELTS 8.0, C1, Academic..." value="Từ vựng cấp độ C1">
                 <button class="btn-extract" onclick="extractWords()" id="extractBtn">
-                    <span id="btnIcon">⚡</span> <span id="btnText">Phân tích văn bản</span>
+                    <span id="btnText">Phân tích với Gemini</span>
                 </button>
             </div>
         </div>
 
-        <div id="resultsArea" style="margin-top: 50px; display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
-                <h3 id="resultCount" style="margin:0; font-weight: 800; font-size: 1.4rem;">0 từ được tìm thấy</h3>
-                <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">Kiểm tra và lưu trữ</span>
+        <div id="resultsArea" class="coach-container">
+            <div class="coach-card">
+                <div class="coach-header">
+                    <div class="coach-avatar">🤖</div>
+                    <h3 style="margin:0; font-weight:800;">Nhận xét từ AI Coach</h3>
+                </div>
+                <div id="coachSummary" class="summary-text"></div>
+                <div class="pros-cons-grid">
+                    <div class="pc-item" style="border-left: 5px solid var(--accent);">
+                        <div class="pc-title" style="color: var(--accent);">Điểm mạnh (Pros)</div>
+                        <ul id="coachPros" class="pc-list"></ul>
+                    </div>
+                    <div class="pc-item" style="border-left: 5px solid var(--warning);">
+                        <div class="pc-title" style="color: var(--warning);">Cần cải thiện (Cons)</div>
+                        <ul id="coachCons" class="pc-list"></ul>
+                    </div>
+                </div>
             </div>
-            
+
+            <h3 id="resultCount" style="margin-bottom: 25px; font-weight: 800; font-size: 1.4rem;">0 từ vựng tiềm năng</h3>
             <div id="wordsList"></div>
             
             <button class="btn-extract" id="saveAllBtn" 
-                    style="background: var(--accent); width: 100%; margin-top: 25px; padding: 20px; font-size: 1.1rem;" 
+                    style="background: var(--accent); width: 100%; margin-top: 30px; padding: 22px;" 
                     onclick="saveAllWords()">
-                Xác nhận & Lưu vào kho ✓
+                Xác nhận lưu tất cả vào kho ✓
             </button>
+        </div>
+
+        <div id="debuggerArea">
+            <span class="debug-label">⚠️ DEBUGGER - PHÁT HIỆN LỖI HỆ THỐNG:</span>
+            <div id="debugContent"></div>
+            <div style="margin-top:15px; opacity:0.6; font-size: 0.75rem;">Phản hồi thô từ AI (Raw JSON):</div>
+            <pre id="debugRaw" style="background:#1e293b; padding:15px; border-radius:10px; margin-top:8px; white-space: pre-wrap; font-size: 0.75rem; color: #94a3b8;"></pre>
         </div>
     </div>
 
 <script>
-    const API_URL = '/api';
-    let extractedWords = [];
+    const API_URL = '/api'; // Đường dẫn Proxy tới localhost:5000
+    let extractedData = null;
 
-    // --- 1. HEARTBEAT: CHECK IF BACKEND IS ALIVE ---
-    async function checkBackend() {
+    // --- 1. KIỂM TRẠ TRẠNG THÁI AI (Health Check) ---
+    async function checkAIStatus() {
         const dot = document.getElementById('statusDot');
         const text = document.getElementById('statusText');
-        
         try {
-            const res = await fetch(`${API_URL}/quiz-sentence?word=test`); 
+            const res = await fetch(`${API_URL}/health`);
             if (res.ok) {
                 dot.className = "status-dot status-online";
-                text.innerText = "AI Engine: Hoạt động bình thường";
+                text.innerText = "AI Engine: Sẵn sàng";
+            } else {
+                throw new Error();
             }
         } catch (e) {
             dot.className = "status-dot status-offline";
-            text.innerText = "AI Engine: Mất kết nối (Kiểm tra PM2)";
+            text.innerText = "AI Engine: Ngoại tuyến (Kiểm tra app.py)";
         }
     }
+    checkAIStatus();
 
-    checkBackend();
-    setInterval(checkBackend, 10000);
-
-    // --- 2. ROBUST EXTRACTION LOGIC ---
+    // --- 2. XỬ LÝ TRÍCH XUẤT ---
     async function extractWords() {
         const essay = document.getElementById('essayInput').value.trim();
         const req = document.getElementById('customReq').value.trim();
         const btn = document.getElementById('extractBtn');
-        const btnText = document.getElementById('btnText');
-        const errorBox = document.getElementById('errorMessage');
+        const resultsArea = document.getElementById('resultsArea');
+        const debuggerArea = document.getElementById('debuggerArea');
 
-        if (!essay) {
-            showError("Vui lòng dán văn bản cần phân tích trước.");
-            return;
-        }
+        if (!essay) { alert("Vui lòng nhập nội dung bài viết!"); return; }
 
-        errorBox.style.display = "none";
         btn.disabled = true;
-        btnText.innerText = "Đang xử lý...";
-        document.getElementById('resultsArea').style.display = "none";
+        btn.innerHTML = "AI đang đọc bài...";
+        resultsArea.style.display = "none";
+        debuggerArea.style.display = "none";
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); // Increased timeout for larger essays
-
             const res = await fetch(`${API_URL}/extract-vocab`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ essay, requirement: req || "Từ vựng cấp độ C1" }),
-                signal: controller.signal
+                body: JSON.stringify({ essay, requirement: req })
             });
 
-            if (!res.ok) throw new Error("AI Server returned an error.");
+            const data = await res.json();
+            if (!res.ok) throw { message: data.error || "Lỗi API", raw: data };
 
-            extractedWords = await res.json();
-            
-            if (extractedWords && extractedWords.length > 0) {
-                renderResults();
-            } else {
-                showError("AI không tìm thấy từ vựng nào phù hợp với yêu cầu của bạn.");
-                btn.disabled = false;
-                btnText.innerText = "Phân tích văn bản";
-            }
+            extractedData = data;
+            renderResults();
             
         } catch (e) {
-            if (e.name === 'AbortError') {
-                showError("Yêu cầu quá hạn. Văn bản của bạn có thể quá dài, hãy thử chia nhỏ ra nhé.");
-            } else {
-                showError("Không thể kết nối đến AI. Vui lòng đảm bảo PM2 đang chạy 'vocab-ai'.");
-            }
+            showDebugger(e);
             btn.disabled = false;
-            btnText.innerText = "Phân tích văn bản";
+            btn.innerHTML = "Phân tích với Gemini";
         }
     }
 
-    function showError(msg) {
-        const errorBox = document.getElementById('errorMessage');
-        errorBox.innerText = `⚠️ ${msg}`;
-        errorBox.style.display = "block";
-    }
-
+    // --- 3. HIỂN THỊ KẾT QUẢ ---
     function renderResults() {
-        const list = document.getElementById('wordsList');
-        const btn = document.getElementById('extractBtn');
-        const btnText = document.getElementById('btnText');
+        const { coaching, words } = extractedData;
         
-        list.innerHTML = "";
-        document.getElementById('resultCount').innerText = `Đã tìm thấy ${extractedWords.length} từ vựng`;
+        // Hiển thị AI Coach (Tiếng Việt)
+        document.getElementById('coachSummary').innerText = coaching.summary;
+        document.getElementById('coachPros').innerHTML = coaching.pros.map(p => `<li>${p}</li>`).join('');
+        document.getElementById('coachCons').innerHTML = coaching.cons.map(c => `<li>${c}</li>`).join('');
 
-        extractedWords.forEach((w, index) => {
+        // Hiển thị danh sách từ
+        const list = document.getElementById('wordsList');
+        list.innerHTML = "";
+        document.getElementById('resultCount').innerText = `${words.length} từ vựng tiềm năng được tìm thấy`;
+        
+        words.forEach((w, idx) => {
             list.innerHTML += `
-                <div class="result-item" style="animation-delay: ${index * 0.05}s">
+                <div class="result-item" style="animation: springUp 0.6s var(--spring) forwards ${idx * 0.05}s; opacity:0;">
                     <div style="flex: 1;">
-                        <div class="word-header">
-                            <span class="word-text">${w.word}</span>
-                            <span class="tag">${w.level}</span>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                            <span style="font-weight:800; font-size:1.2rem;">${w.word}</span>
+                            <span style="font-size:0.7rem; background:#f1f5f9; padding:4px 10px; border-radius:8px; font-weight:800; color:var(--text-muted);">${w.level}</span>
                         </div>
-                        <div class="def-vi-text">${w.definition_vi}</div>
+                        <div style="color: #1e40af; font-weight:600; font-size:0.9rem;">${w.definition_vi}</div>
                     </div>
-                    <div class="tag folder-tag">Thư mục: ${w.suggested_category}</div>
+                    <div style="font-size:0.7rem; background:#ecfdf4; color:#059669; padding:6px 12px; border-radius:10px; font-weight:800; text-transform: uppercase;">
+                        ${w.suggested_category}
+                    </div>
                 </div>
             `;
         });
 
         document.getElementById('resultsArea').style.display = "block";
-        btn.disabled = false;
-        btnText.innerText = "Phân tích văn bản";
+        document.getElementById('extractBtn').disabled = false;
+        document.getElementById('extractBtn').innerHTML = "Phân tích với Gemini";
+        window.scrollTo({ top: document.getElementById('resultsArea').offsetTop - 50, behavior: 'smooth' });
     }
 
+    // --- 4. DEBUGGER ---
+    function showDebugger(err) {
+        const area = document.getElementById('debuggerArea');
+        area.style.display = "block";
+        document.getElementById('debugContent').innerHTML = `
+            <div style="color: #fb7185;">Mô tả lỗi: ${err.message}</div>
+            <div style="margin-top:5px; color: #94a3b8;">Có thể do: OpenRouter Key hết hạn, lỗi cấu hình Proxy, hoặc AI trả về sai format.</div>
+        `;
+        document.getElementById('debugRaw').innerText = JSON.stringify(err.raw || "Không có dữ liệu phản hồi", null, 2);
+    }
+
+    // --- 5. LƯU VÀO DATABASE ---
     async function saveAllWords() {
         const btn = document.getElementById('saveAllBtn');
         btn.innerText = "Đang lưu trữ...";
@@ -270,20 +302,17 @@ if (!isset($_SESSION['user_id'])) {
             const res = await fetch('process_essay.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ words: extractedWords })
+                body: JSON.stringify({ words: extractedData.words })
             });
-
             const result = await res.json();
             if (result.success) {
-                btn.innerText = `Đã thêm ${result.count} từ vào kho ✓`;
-                setTimeout(() => window.location.href = 'board.php', 1500);
-            } else {
-                throw new Error("Lỗi lưu trữ.");
+                btn.innerText = `Đã lưu thành công ${result.count} từ! ✓`;
+                setTimeout(() => window.location.href = 'board.php', 1200);
             }
         } catch (e) {
-            alert("Đã xảy ra lỗi khi lưu vào cơ sở dữ liệu.");
-            btn.innerText = "Xác nhận & Lưu vào kho ✓";
+            alert("Lỗi lưu trữ dữ liệu.");
             btn.disabled = false;
+            btn.innerText = "Xác nhận lưu tất cả vào kho ✓";
         }
     }
 </script>
