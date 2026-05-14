@@ -1,318 +1,176 @@
-<?php
-session_start();
-
-// Bảo mật: Đảm bảo người dùng đã đăng nhập
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
+<?php 
+session_start(); 
+if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); } 
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Writing Coach | Vocab AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b;
-            --accent: #10b981; 
-            --bg: #f8fafc;
-            --border: #e2e8f0; 
-            --text-muted: #64748b; 
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --primary: #1e293b; --accent: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --bg: #f8fafc; --border: #e2e8f0; --text-muted: #64748b;
         }
-
-        body { 
-            font-family: 'Be Vietnam Pro', sans-serif; 
-            background: var(--bg); 
-            margin: 0; 
-            padding: 40px; 
-            color: var(--primary); 
-            box-sizing: border-box; 
-        }
-
-        .container { max-width: 900px; margin: 20px auto; width: 100%; }
-
-        @keyframes springUp {
-            0% { opacity: 0; transform: scale(0.9) translateY(40px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-spring { animation: springUp 0.7s var(--spring) forwards; }
-
-        /* --- AI STATUS BADGE --- */
-        .status-badge {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 8px 16px; border-radius: 20px; font-size: 0.8rem;
-            font-weight: 700; margin-bottom: 25px; border: 1px solid var(--border);
-            background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-        }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; transition: 0.3s; }
-        .status-online { background: var(--accent); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
-        .status-offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); }
-
-        .card { 
-            background: white; padding: 45px; border-radius: 35px; 
-            border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.04); 
-            box-sizing: border-box; margin-bottom: 30px;
-        }
+        body { font-family: 'Be Vietnam Pro', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--primary); }
+        .container { max-width: 900px; margin: 0 auto; }
         
-        .page-title { margin: 0 0 10px 0; font-weight: 800; font-size: 2.5rem; letter-spacing: -1px; }
-        .page-subtitle { color: var(--text-muted); font-weight: 500; margin-bottom: 35px; font-size: 1.1rem; }
-
-        textarea {
-            width: 100%; border-radius: 24px; border: 2px solid var(--border);
-            padding: 25px; font-family: inherit; font-size: 1.05rem; box-sizing: border-box;
-            outline: none; transition: 0.3s; resize: vertical; min-height: 280px;
-        }
-        textarea:focus { border-color: var(--accent); background: #f0fdf4; }
-
-        .controls { display: flex; gap: 15px; align-items: center; margin-top: 25px; flex-wrap: wrap; }
-        .custom-input { 
-            flex: 1; padding: 16px 20px; border-radius: 16px; 
-            border: 1px solid var(--border); font-family: inherit; 
-            font-weight: 600; font-size: 1rem; outline: none; transition: 0.3s;
-        }
-        .custom-input:focus { border-color: var(--accent); }
-
-        .btn-extract {
-            background: var(--primary); color: white; border: none; padding: 18px 35px;
-            border-radius: 18px; cursor: pointer; font-weight: 800; font-size: 1.05rem; 
-            transition: 0.3s var(--spring); display: flex; align-items: center; justify-content: center; gap: 10px;
-        }
-        .btn-extract:hover:not(:disabled) { transform: translateY(-4px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
-        .btn-extract:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        /* --- AI COACH SECTION --- */
-        .coach-container { display: none; margin-top: 40px; }
-        .coach-card {
-            background: #f1f5f9; border-radius: 28px; padding: 35px;
-            border: 1px solid var(--border); margin-bottom: 30px;
-        }
-        .coach-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-        .coach-avatar { width: 45px; height: 45px; border-radius: 14px; background: var(--accent); color: white; 
-                       display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-        .summary-text { font-size: 1.1rem; line-height: 1.7; font-weight: 500; color: #334155; margin-bottom: 25px; white-space: pre-wrap; }
+        .card { background: white; padding: 30px; border-radius: 25px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; }
+        .title { font-size: 1.5rem; font-weight: 800; margin-bottom: 20px; color: var(--primary); }
         
-        .pros-cons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .pc-item { padding: 20px; border-radius: 20px; background: white; border: 1px solid var(--border); }
-        .pc-title { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
-        .pc-list { margin: 0; padding-left: 20px; font-size: 0.9rem; line-height: 1.6; color: #475569; }
+        textarea { width: 100%; height: 200px; padding: 20px; border-radius: 15px; border: 2px solid var(--border); font-family: inherit; font-size: 1rem; resize: vertical; box-sizing: border-box; margin-bottom: 20px; transition: 0.3s; }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        
+        select, input.req-input { width: 100%; padding: 15px; border-radius: 15px; border: 2px solid var(--border); font-family: inherit; font-size: 1rem; margin-bottom: 20px; box-sizing: border-box; }
+        
+        .btn-main { background: var(--primary); color: white; padding: 18px 30px; border: none; border-radius: 15px; font-weight: 700; font-size: 1.1rem; cursor: pointer; width: 100%; transition: 0.3s; }
+        .btn-main:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .btn-main:disabled { background: var(--text-muted); cursor: not-allowed; }
 
-        /* --- VOCABULARY RESULTS --- */
-        .result-item {
-            background: white; padding: 25px; border-radius: 24px; border: 1px solid var(--border);
-            margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s;
-        }
-        .result-item:hover { border-color: var(--accent); transform: translateX(5px); }
+        /* Loader */
+        #loader { display: none; text-align: center; padding: 40px; font-weight: 700; color: var(--accent); }
 
-        /* --- DEBUGGER SYSTEM --- */
-        #debuggerArea {
-            display: none; background: #0f172a; color: #38bdf8; padding: 25px;
-            border-radius: 20px; margin-top: 30px; font-family: 'Courier New', monospace;
-            font-size: 0.8rem; line-height: 1.5; overflow-x: auto; border: 2px solid #1e293b;
-        }
-        .debug-label { color: #ef4444; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; display: block; }
+        /* Kết quả */
+        #resultArea { display: none; }
+        .section-title { font-weight: 800; color: var(--accent); border-bottom: 2px dashed var(--border); padding-bottom: 10px; margin-top: 30px; margin-bottom: 20px; }
+        .coaching-box { background: #f0fdf4; padding: 20px; border-radius: 15px; line-height: 1.6; border: 1px solid #dcfce7; }
+        
+        /* Grid từ vựng */
+        .vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .word-card { background: white; border: 1px solid var(--border); padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .word-card h3 { margin: 0 0 5px 0; color: var(--accent); font-size: 1.3rem; }
+        .word-ipa { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px; display: block; }
+        .word-def { font-weight: 600; margin-bottom: 10px; }
+        .word-ex { font-style: italic; color: #475569; font-size: 0.95rem; }
 
-        @media (max-width: 768px) {
-            body { padding: 20px; padding-top: 60px; }
-            .pros-cons-grid { grid-template-columns: 1fr; }
-            .page-title { font-size: 2rem; }
-        }
+        /* Debugger */
+        #debuggerArea { display: none; background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 15px; margin-top: 20px; font-family: monospace; }
+        .debug-title { color: var(--warning); font-weight: bold; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <?php include 'nav.php'; ?>
 
-    <div class="container animate-spring">
-        <div class="status-badge">
-            <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Đang kiểm tra AI Engine...</span>
-        </div>
-
+    <div class="container">
         <div class="card">
-            <h1 class="page-title">AI Writing Coach</h1>
-            <p class="page-subtitle">Nhận xét chuyên sâu và trích xuất từ vựng học thuật từ bài viết của bạn.</p>
-
-            <textarea id="essayInput" placeholder="Dán bài luận hoặc đoạn văn tiếng Anh của bạn tại đây..."></textarea>
+            <div class="title">✨ AI Writing Coach & Vocab Extractor</div>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Dán bài viết của bạn vào đây. AI sẽ nhận xét và trích xuất từ vựng nâng cao giúp bạn.</p>
             
-            <div class="controls">
-                <input type="text" id="customReq" class="custom-input" placeholder="Yêu cầu: IELTS 8.0, C1, Academic..." value="Từ vựng cấp độ C1">
-                <button class="btn-extract" onclick="extractWords()" id="extractBtn">
-                    <span id="btnText">Phân tích với Gemini</span>
-                </button>
-            </div>
+            <textarea id="essayInput" placeholder="Ví dụ: I think that learning English is very important because..."></textarea>
+            
+            <input type="text" id="reqInput" class="req-input" value="Từ vựng cấp độ B1" placeholder="Yêu cầu: Từ vựng IELTS, Từ vựng C1...">
+            
+            <button id="extractBtn" class="btn-main" onclick="extractWords()">Phân tích với Gemini</button>
         </div>
 
-        <div id="resultsArea" class="coach-container">
-            <div class="coach-card">
-                <div class="coach-header">
-                    <div class="coach-avatar">🤖</div>
-                    <h3 style="margin:0; font-weight:800;">Nhận xét từ AI Coach</h3>
-                </div>
-                <div id="coachSummary" class="summary-text"></div>
-                <div class="pros-cons-grid">
-                    <div class="pc-item" style="border-left: 5px solid var(--accent);">
-                        <div class="pc-title" style="color: var(--accent);">Điểm mạnh (Pros)</div>
-                        <ul id="coachPros" class="pc-list"></ul>
-                    </div>
-                    <div class="pc-item" style="border-left: 5px solid var(--warning);">
-                        <div class="pc-title" style="color: var(--warning);">Cần cải thiện (Cons)</div>
-                        <ul id="coachCons" class="pc-list"></ul>
-                    </div>
-                </div>
-            </div>
+        <div id="loader">Đang phân tích bài viết. Quá trình này có thể mất 10-15 giây... ⏳</div>
 
-            <h3 id="resultCount" style="margin-bottom: 25px; font-weight: 800; font-size: 1.4rem;">0 từ vựng tiềm năng</h3>
-            <div id="wordsList"></div>
-            
-            <button class="btn-extract" id="saveAllBtn" 
-                    style="background: var(--accent); width: 100%; margin-top: 30px; padding: 22px;" 
-                    onclick="saveAllWords()">
-                Xác nhận lưu tất cả vào kho ✓
-            </button>
+        <div id="resultArea" class="card">
+            <div class="section-title">📝 Nhận xét từ AI Coach</div>
+            <div id="coachingContent" class="coaching-box"></div>
+
+            <div class="section-title">💎 Từ vựng nâng cao</div>
+            <div id="vocabList" class="vocab-grid"></div>
         </div>
 
         <div id="debuggerArea">
-            <span class="debug-label">⚠️ DEBUGGER - PHÁT HIỆN LỖI HỆ THỐNG:</span>
-            <div id="debugContent"></div>
-            <div style="margin-top:15px; opacity:0.6; font-size: 0.75rem;">Phản hồi thô từ AI (Raw JSON):</div>
-            <pre id="debugRaw" style="background:#1e293b; padding:15px; border-radius:10px; margin-top:8px; white-space: pre-wrap; font-size: 0.75rem; color: #94a3b8;"></pre>
+            <div class="debug-title">⚠️ BẢNG ĐIỀU KHIỂN LỖI (DEBUGGER)</div>
+            <div id="debugMsg" style="margin-bottom: 15px; color: #ef4444;"></div>
+            <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px;">Raw Response:</div>
+            <pre id="debugRaw" style="background: #1e293b; padding: 15px; border-radius: 10px; overflow-x: auto; font-size: 0.8rem;"></pre>
         </div>
     </div>
 
 <script>
-    const API_URL = '/api'; // Đường dẫn Proxy tới localhost:5000
-    let extractedData = null;
+    // Tuỳ chỉnh URL API dựa trên môi trường của bạn
+    const API_URL = '/api/extract-vocab'; 
 
-    // --- 1. KIỂM TRẠ TRẠNG THÁI AI (Health Check) ---
-    async function checkAIStatus() {
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-        try {
-            const res = await fetch(`${API_URL}/health`);
-            if (res.ok) {
-                dot.className = "status-dot status-online";
-                text.innerText = "AI Engine: Sẵn sàng";
-            } else {
-                throw new Error();
-            }
-        } catch (e) {
-            dot.className = "status-dot status-offline";
-            text.innerText = "AI Engine: Ngoại tuyến (Kiểm tra app.py)";
-        }
-    }
-    checkAIStatus();
-
-    // --- 2. XỬ LÝ TRÍCH XUẤT ---
     async function extractWords() {
         const essay = document.getElementById('essayInput').value.trim();
-        const req = document.getElementById('customReq').value.trim();
+        const req = document.getElementById('reqInput').value.trim();
         const btn = document.getElementById('extractBtn');
-        const resultsArea = document.getElementById('resultsArea');
-        const debuggerArea = document.getElementById('debuggerArea');
+        
+        if (!essay) { alert("Vui lòng nhập bài viết!"); return; }
 
-        if (!essay) { alert("Vui lòng nhập nội dung bài viết!"); return; }
-
+        // Reset Giao diện
         btn.disabled = true;
-        btn.innerHTML = "AI đang đọc bài...";
-        resultsArea.style.display = "none";
-        debuggerArea.style.display = "none";
+        document.getElementById('loader').style.display = "block";
+        document.getElementById('resultArea').style.display = "none";
+        document.getElementById('debuggerArea').style.display = "none";
+        document.getElementById('vocabList').innerHTML = "";
+        document.getElementById('coachingContent').innerHTML = "";
 
         try {
-            const res = await fetch(`${API_URL}/extract-vocab`, {
+            const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ essay, requirement: req })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ essay: essay, requirement: req })
             });
 
-            const data = await res.json();
-            if (!res.ok) throw { message: data.error || "Lỗi API", raw: data };
-
-            extractedData = data;
-            renderResults();
+            // Parse text trước để nếu lỗi có thể xem được raw
+            const textRaw = await response.text(); 
+            let data;
             
-        } catch (e) {
-            showDebugger(e);
-            btn.disabled = false;
-            btn.innerHTML = "Phân tích với Gemini";
-        }
-    }
-
-    // --- 3. HIỂN THỊ KẾT QUẢ ---
-    function renderResults() {
-        const { coaching, words } = extractedData;
-        
-        // Hiển thị AI Coach (Tiếng Việt)
-        document.getElementById('coachSummary').innerText = coaching.summary;
-        document.getElementById('coachPros').innerHTML = coaching.pros.map(p => `<li>${p}</li>`).join('');
-        document.getElementById('coachCons').innerHTML = coaching.cons.map(c => `<li>${c}</li>`).join('');
-
-        // Hiển thị danh sách từ
-        const list = document.getElementById('wordsList');
-        list.innerHTML = "";
-        document.getElementById('resultCount').innerText = `${words.length} từ vựng tiềm năng được tìm thấy`;
-        
-        words.forEach((w, idx) => {
-            list.innerHTML += `
-                <div class="result-item" style="animation: springUp 0.6s var(--spring) forwards ${idx * 0.05}s; opacity:0;">
-                    <div style="flex: 1;">
-                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-                            <span style="font-weight:800; font-size:1.2rem;">${w.word}</span>
-                            <span style="font-size:0.7rem; background:#f1f5f9; padding:4px 10px; border-radius:8px; font-weight:800; color:var(--text-muted);">${w.level}</span>
-                        </div>
-                        <div style="color: #1e40af; font-weight:600; font-size:0.9rem;">${w.definition_vi}</div>
-                    </div>
-                    <div style="font-size:0.7rem; background:#ecfdf4; color:#059669; padding:6px 12px; border-radius:10px; font-weight:800; text-transform: uppercase;">
-                        ${w.suggested_category}
-                    </div>
-                </div>
-            `;
-        });
-
-        document.getElementById('resultsArea').style.display = "block";
-        document.getElementById('extractBtn').disabled = false;
-        document.getElementById('extractBtn').innerHTML = "Phân tích với Gemini";
-        window.scrollTo({ top: document.getElementById('resultsArea').offsetTop - 50, behavior: 'smooth' });
-    }
-
-    // --- 4. DEBUGGER ---
-    function showDebugger(err) {
-        const area = document.getElementById('debuggerArea');
-        area.style.display = "block";
-        document.getElementById('debugContent').innerHTML = `
-            <div style="color: #fb7185;">Mô tả lỗi: ${err.message}</div>
-            <div style="margin-top:5px; color: #94a3b8;">Có thể do: OpenRouter Key hết hạn, lỗi cấu hình Proxy, hoặc AI trả về sai format.</div>
-        `;
-        document.getElementById('debugRaw').innerText = JSON.stringify(err.raw || "Không có dữ liệu phản hồi", null, 2);
-    }
-
-    // --- 5. LƯU VÀO DATABASE ---
-    async function saveAllWords() {
-        const btn = document.getElementById('saveAllBtn');
-        btn.innerText = "Đang lưu trữ...";
-        btn.disabled = true;
-        
-        try {
-            const res = await fetch('process_essay.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ words: extractedData.words })
-            });
-            const result = await res.json();
-            if (result.success) {
-                btn.innerText = `Đã lưu thành công ${result.count} từ! ✓`;
-                setTimeout(() => window.location.href = 'board.php', 1200);
+            try {
+                data = JSON.parse(textRaw);
+            } catch (e) {
+                throw new Error("Lỗi định dạng JSON từ Backend trả về.\nRaw data: " + textRaw);
             }
-        } catch (e) {
-            alert("Lỗi lưu trữ dữ liệu.");
+
+            if (!response.ok || data.error) {
+                throw new Error(data.error || `HTTP Error ${response.status}`);
+            }
+
+            // --- JAVASCRIPT PHÒNG THỦ (SAFE RENDERING) ---
+            
+            // 1. Render Coaching (an toàn)
+            const coachingText = data.coaching || data.feedback || data.summary || "AI không tạo nhận xét cho bài này.";
+            // Thay thế \n bằng thẻ <br> để xuống dòng đẹp mắt
+            document.getElementById('coachingContent').innerHTML = coachingText.replace(/\n/g, '<br>');
+
+            // 2. Render Words (Tìm mọi tên mảng có thể, mặc định là mảng rỗng nếu không có)
+            const wordsArray = data.words || data.vocabulary || data.vocabList || [];
+            
+            if (!Array.isArray(wordsArray) || wordsArray.length === 0) {
+                document.getElementById('vocabList').innerHTML = "<p style='grid-column: 1/-1;'>Không tìm thấy từ vựng nào phù hợp với yêu cầu.</p>";
+            } else {
+                let html = '';
+                wordsArray.forEach(item => {
+                    // Xử lý trường hợp AI lại trả về chuỗi thay vì object
+                    if (typeof item === 'string') {
+                        html += `
+                        <div class="word-card">
+                            <h3>${item}</h3>
+                        </div>`;
+                    } else {
+                        // Dùng item.word || 'N/A' để tránh lỗi undefined nếu thuộc tính bị thiếu
+                        html += `
+                        <div class="word-card">
+                            <h3>${item.word || 'N/A'}</h3>
+                            <span class="word-ipa">${item.ipa || ''}</span>
+                            <div class="word-def">${item.definition || item.meaning || ''}</div>
+                            <div class="word-ex">${item.example || ''}</div>
+                        </div>`;
+                    }
+                });
+                document.getElementById('vocabList').innerHTML = html;
+            }
+
+            // Hiển thị kết quả thành công
+            document.getElementById('loader').style.display = "none";
+            document.getElementById('resultArea').style.display = "block";
+
+        } catch (error) {
+            // Hiển thị Debugger xịn xò
+            document.getElementById('loader').style.display = "none";
+            document.getElementById('debuggerArea').style.display = "block";
+            document.getElementById('debugMsg').innerText = "Lỗi xử lý Frontend: " + error.message;
+            console.error("Chi tiết lỗi:", error);
+        } finally {
             btn.disabled = false;
-            btn.innerText = "Xác nhận lưu tất cả vào kho ✓";
         }
     }
 </script>
