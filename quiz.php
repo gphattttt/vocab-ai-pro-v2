@@ -17,8 +17,8 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        body { font-family: 'Be Vietnam Pro', sans-serif; background: var(--bg); margin: 0; padding: 40px; color: var(--primary); }
-        .container { max-width: 700px; margin: 40px auto; }
+        body { font-family: 'Be Vietnam Pro', sans-serif; background: var(--bg); margin: 0; padding: 40px 20px; color: var(--primary); }
+        .container { max-width: 700px; margin: 0 auto; }
 
         /* --- STATUS BADGE --- */
         .status-badge {
@@ -31,7 +31,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         .status-offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); }
 
         .card { 
-            background: white; padding: 50px; border-radius: 35px; 
+            background: white; padding: 40px; border-radius: 35px; 
             border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.04);
             position: relative; animation: slideUp 0.6s var(--spring);
         }
@@ -42,7 +42,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
         .quiz-title { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 10px; }
         
-        .sentence-display { font-size: 1.5rem; line-height: 1.6; font-weight: 600; margin-bottom: 25px; color: #334155; }
+        .sentence-display { font-size: 1.4rem; line-height: 1.6; font-weight: 600; margin-bottom: 25px; color: #334155; }
         .sentence-display b { color: var(--accent); border-bottom: 3px dashed var(--accent); padding: 0 5px; }
 
         /* --- HINT SYSTEM --- */
@@ -53,28 +53,53 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             display: inline-block;
         }
 
-        input#answerInput {
-            width: 100%; padding: 22px; border-radius: 20px; border: 2px solid var(--border);
-            font-size: 1.25rem; font-family: inherit; font-weight: 700; outline: none;
-            text-align: center; transition: 0.3s; margin-bottom: 25px; box-sizing: border-box;
+        /* --- MULTIPLE CHOICE GRID --- */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
         }
-        input#answerInput:focus { border-color: var(--accent); background: #f0fdf4; transform: scale(1.01); }
+        
+        .option-btn {
+            background: white;
+            border: 2px solid var(--border);
+            padding: 20px;
+            border-radius: 20px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--primary);
+            cursor: pointer;
+            transition: all 0.3s var(--spring);
+            text-align: center;
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            background: #f0fdf4;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.1);
+        }
+        .option-btn:active:not(:disabled) { transform: translateY(0); }
+        .option-btn:disabled { cursor: not-allowed; opacity: 0.7; }
 
-        .btn-check {
+        /* Trạng thái đúng/sai cho các nút */
+        .option-btn.opt-correct { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 10px 20px rgba(16,185,129,0.3); }
+        .option-btn.opt-wrong { background: var(--danger); border-color: var(--danger); color: white; box-shadow: 0 10px 20px rgba(239,68,68,0.3); }
+
+        .btn-next {
             width: 100%; padding: 20px; border-radius: 18px; border: none;
-            background: var(--primary); color: white; font-weight: 800; font-size: 1.1rem;
+            background: var(--accent); color: white; font-weight: 800; font-size: 1.1rem;
             cursor: pointer; transition: 0.3s var(--spring);
         }
-        .btn-check:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .btn-check:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-next:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(16,185,129,0.2); }
 
         /* --- FEEDBACK & RESULTS --- */
-        .feedback { display: none; margin-top: 25px; padding: 25px; border-radius: 20px; font-weight: 700; text-align: center; animation: slideUp 0.4s var(--spring); }
+        .feedback { display: none; margin-top: 10px; margin-bottom: 20px; padding: 20px; border-radius: 20px; font-weight: 700; text-align: center; animation: slideUp 0.4s var(--spring); }
         .correct { background: #ecfdf5; color: #059669; border: 1px solid #dcfce7; }
         .wrong { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
 
         #resultScreen { display: none; text-align: center; }
-        .score-circle { width: 140px; height: 140px; border-radius: 50%; border: 10px solid var(--accent); margin: 0 auto 30px auto; display: flex; align-items: center; justify-content: center; font-size: 2.8rem; font-weight: 800; color: var(--accent); }
+        .score-circle { width: 140px; height: 140px; border-radius: 50%; border: 10px solid var(--accent); margin: 0 auto 30px auto; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; color: var(--primary); }
 
         /* --- DEBUGGER --- */
         #debuggerArea {
@@ -85,7 +110,11 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
-        @media (max-width: 600px) { body { padding: 20px; } .card { padding: 30px; } .sentence-display { font-size: 1.2rem; } }
+        @media (max-width: 600px) { 
+            .card { padding: 30px 20px; } 
+            .sentence-display { font-size: 1.15rem; } 
+            .options-grid { grid-template-columns: 1fr; } /* Chuyển thành 1 cột trên điện thoại */
+        }
     </style>
 </head>
 <body>
@@ -100,7 +129,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
         <div class="card" id="quizCard">
             <div id="loader" style="text-align:center; padding: 60px 0;">
-                <p style="font-weight:700; color:var(--text-muted); animation: pulse 1.5s infinite;">Gemini đang soạn câu hỏi cho bạn...</p>
+                <p style="font-weight:700; color:var(--text-muted); animation: pulse 1.5s infinite;">Gemini đang soạn câu trắc nghiệm cho bạn...</p>
             </div>
 
             <div id="quizContent" style="display:none;">
@@ -113,13 +142,12 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
                     <span id="wordHint">Gợi ý: Đang tải...</span>
                 </div>
 
-                <div id="inputArea">
-                    <input type="text" id="answerInput" placeholder="Nhập từ vựng..." autocomplete="off">
-                    <button class="btn-check" onclick="checkAnswer()" id="checkBtn">Kiểm tra đáp án</button>
-                </div>
+                <!-- Lưới đáp án trắc nghiệm -->
+                <div id="inputArea" class="options-grid"></div>
 
                 <div id="feedbackBox" class="feedback"></div>
-                <button class="btn-check" id="nextBtn" style="display:none; margin-top: 20px; background: var(--accent);" onclick="loadNextQuestion()">Tiếp tục →</button>
+                
+                <button class="btn-next" id="nextBtn" style="display:none;" onclick="loadNextQuestion()">Tiếp tục →</button>
             </div>
 
             <div id="resultScreen">
@@ -131,7 +159,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
                     ✨ Tuyệt vời! Bạn nhận được +50 XP ⚡
                 </div>
 
-                <button class="btn-check" onclick="window.location.href='study.php'">Quay lại Trung tâm học tập</button>
+                <button class="btn-next" onclick="window.location.href='study.php'" style="background: var(--primary);">Quay lại Trung tâm học tập</button>
             </div>
         </div>
 
@@ -144,12 +172,15 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
 <script>
     const API_URL = '/api';
+    let allWords = []; // Lưu toàn bộ kho từ để làm đáp án nhiễu
     let quizWords = [];
     let currentIdx = 0;
     let score = 0;
     const TOTAL_Q = 10;
 
-    // --- 1. KIỂM TRA KẾT NỐI AI ---
+    // Danh sách từ vựng dự phòng nếu kho từ của user có quá ít từ (< 4 từ)
+    const fallbackVocab = ['resilient', 'ubiquitous', 'serendipity', 'ephemeral', 'eloquent', 'aesthetic', 'diligent', 'meticulous', 'inevitable', 'ambiguous'];
+
     async function checkAI() {
         const dot = document.getElementById('statusDot');
         const text = document.getElementById('statusText');
@@ -168,14 +199,13 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
     }
     checkAI();
 
-    // --- 2. LẤY DỮ LIỆU TỪ DATABASE ---
     async function loadQuizData() {
         try {
             const res = await fetch('fetch_board.php');
-            const data = await res.json();
+            allWords = await res.json();
             
-            // Lấy ngẫu nhiên tối đa 10 từ từ danh sách SRS
-            quizWords = data.sort(() => 0.5 - Math.random()).slice(0, TOTAL_Q);
+            // Trộn và lấy ngẫu nhiên câu hỏi
+            quizWords = [...allWords].sort(() => 0.5 - Math.random()).slice(0, TOTAL_Q);
             
             if (quizWords.length === 0) {
                 document.getElementById('loader').innerHTML = "<p>Kho từ vựng trống. Hãy thêm từ trước khi làm trắc nghiệm!</p>";
@@ -187,7 +217,6 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         }
     }
 
-    // --- 3. HIỂN THỊ CÂU HỎI ---
     async function loadNextQuestion() {
         if (currentIdx >= quizWords.length) {
             showResults();
@@ -201,10 +230,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         document.getElementById('quizContent').style.display = "none";
         document.getElementById('feedbackBox').style.display = "none";
         document.getElementById('nextBtn').style.display = "none";
-        document.getElementById('inputArea').style.display = "block";
-        document.getElementById('answerInput').value = "";
-        document.getElementById('checkBtn').disabled = false;
-
+        
         try {
             const res = await fetch(`${API_URL}/quiz-sentence?word=${encodeURIComponent(wordObj.word)}`);
             const data = await res.json();
@@ -212,13 +238,13 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
 
             let sentence = data.sentence;
 
-            // BẢO VỆ DỰ PHÒNG: Tự động đục lỗ nếu AI quên
+            // Đục lỗ nếu AI chưa đục
             const regex = new RegExp(wordObj.word, 'gi'); 
             if (!sentence.includes('_____')) {
                 sentence = sentence.replace(regex, '_____');
             }
 
-            // Hiển thị gợi ý dựa trên từ thực tế trong DB
+            // Gợi ý nghĩa tiếng Việt
             const formText = wordObj.word_form ? `(${wordObj.word_form})` : '';
             document.getElementById('wordHint').innerText = `Gợi ý: ${wordObj.definition_vi} ${formText}`;
 
@@ -227,34 +253,68 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             document.getElementById('questionCounter').innerText = `Câu hỏi ${currentIdx + 1} / ${quizWords.length}`;
             document.getElementById('progressBar').style.width = `${(currentIdx / quizWords.length) * 100}%`;
             
+            // --- TẠO ĐÁP ÁN TRẮC NGHIỆM ---
+            // Lọc bỏ đáp án đúng ra khỏi danh sách nhiễu
+            let distractors = allWords.filter(w => w.word.toLowerCase() !== wordObj.word.toLowerCase());
+            // Lấy ngẫu nhiên 3 từ gây nhiễu
+            distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
+            
+            let options = [{ word: wordObj.word, isCorrect: true }];
+            distractors.forEach(d => options.push({ word: d.word, isCorrect: false }));
+            
+            // Nếu người dùng có ít hơn 4 từ vựng trong kho, bù bằng fallbackVocab
+            while(options.length < 4) {
+                let f = fallbackVocab[Math.floor(Math.random() * fallbackVocab.length)];
+                if (!options.find(o => o.word.toLowerCase() === f.toLowerCase())) {
+                    options.push({ word: f, isCorrect: false });
+                }
+            }
+
+            // Trộn ngẫu nhiên 4 đáp án (A,B,C,D)
+            options = options.sort(() => 0.5 - Math.random());
+
+            // Render nút bấm
+            let optionsHtml = '';
+            options.forEach(opt => {
+                optionsHtml += `<button class="option-btn" onclick="checkChoice(this, ${opt.isCorrect}, '${wordObj.word}')">${opt.word}</button>`;
+            });
+            document.getElementById('inputArea').innerHTML = optionsHtml;
+
             document.getElementById('loader').style.display = "none";
             document.getElementById('quizContent').style.display = "block";
-            document.getElementById('answerInput').focus();
 
         } catch (e) {
             showDebugger({message: `Lỗi AI khi tạo câu hỏi cho từ "${wordObj.word}"`, raw: e});
         }
     }
 
-    // --- 4. KIỂM TRA ĐÁP ÁN ---
-    function checkAnswer() {
-        const userAns = document.getElementById('answerInput').value.trim().toLowerCase();
-        const correctAns = quizWords[currentIdx].word.toLowerCase();
+    // Xử lý khi click vào đáp án
+    function checkChoice(buttonElement, isCorrect, correctWord) {
+        // Vô hiệu hóa tất cả các nút ngay lập tức để tránh bấm 2 lần
+        const allButtons = document.querySelectorAll('.option-btn');
+        allButtons.forEach(btn => btn.disabled = true);
+
         const feedback = document.getElementById('feedbackBox');
-        
-        const isCorrect = (userAns === correctAns);
-        
+
         if (isCorrect) {
             score++;
+            buttonElement.classList.add('opt-correct');
             feedback.className = "feedback correct";
             feedback.innerText = "Chính xác! ✨";
         } else {
+            buttonElement.classList.add('opt-wrong');
             feedback.className = "feedback wrong";
-            feedback.innerText = `Chưa đúng. Đáp án chính xác là: ${quizWords[currentIdx].word}`;
+            feedback.innerText = `Chưa đúng. Đáp án chính xác là: ${correctWord}`;
+            
+            // Đánh dấu xanh cho nút đúng để người dùng biết
+            allButtons.forEach(btn => {
+                if (btn.innerText.toLowerCase() === correctWord.toLowerCase()) {
+                    btn.classList.add('opt-correct');
+                }
+            });
         }
 
         feedback.style.display = "block";
-        document.getElementById('inputArea').style.display = "none";
         document.getElementById('nextBtn').style.display = "block";
 
         // Cập nhật SRS vào Database
@@ -266,7 +326,6 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         currentIdx++;
     }
 
-    // --- 5. HIỂN THỊ KẾT QUẢ CUỐI CÙNG ---
     function showResults() {
         document.getElementById('quizContent').style.display = "none";
         document.getElementById('resultScreen').style.display = "block";
@@ -297,14 +356,6 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         document.getElementById('debugContent').innerText = err.message;
         document.getElementById('debugRaw').innerText = typeof err.raw === 'object' ? JSON.stringify(err.raw, null, 2) : err.raw;
     }
-
-    // Hỗ trợ nhấn Enter để kiểm tra
-    document.getElementById('answerInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            if (document.getElementById('inputArea').style.display !== 'none') checkAnswer();
-            else if (document.getElementById('nextBtn').style.display !== 'none') loadNextQuestion();
-        }
-    });
 </script>
 </body>
 </html>

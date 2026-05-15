@@ -13,6 +13,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo $stmt->execute() ? "Success" : "Error";
     }
 
+    if ($action == 'delete') {
+        $cat_id = $_POST['id'];
+        // Trả các từ vựng thuộc category này về trạng thái "Chưa có category (NULL)" để không bị mất từ
+        $stmt_update = $conn->prepare("UPDATE vocabularies SET category_id = NULL WHERE category_id = ? AND user_id = ?");
+        $stmt_update->bind_param("ii", $cat_id, $user_id);
+        $stmt_update->execute();
+
+        // Tiến hành xóa category
+        $stmt = $conn->prepare("DELETE FROM categories WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("ii", $cat_id, $user_id);
+        echo $stmt->execute() ? "Success" : "Error";
+    }
+
     if ($action == 'assign') {
         $word_id = $_POST['word_id'];
         $cat_id = $_POST['cat_id'] == 'null' ? null : $_POST['cat_id'];
