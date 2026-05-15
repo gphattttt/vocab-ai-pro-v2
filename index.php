@@ -9,23 +9,47 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// --- LOGIC LÀM LẠI BÀI KIỂM TRA (RETAKE) ---
+// --- LOGIC LÀM LẠI BÀI KIỂM TRA (RETAKE) GIỚI HẠN 2 LẦN/TUẦN ---
 if (isset($_GET['retake'])) {
-    $conn->query("UPDATE users SET has_taken_test = 0 WHERE id = $user_id");
-    header("Location: index.php");
-    exit();
-}
-
-$has_taken_test = 1; // Mặc định để 1 tránh lỗi
-
-// Kiểm tra user đã làm bài test chưa
-$stmt = $conn->prepare("SELECT has_taken_test FROM users WHERE id = ?");
-if ($stmt) {
+    // 1. Lấy thông tin làm bài của user
+    $stmt = $conn->prepare("SELECT tests_this_week, last_test_time FROM users WHERE id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $stmt->bind_result($has_taken_test);
-    $stmt->fetch();
+    $test_info = $stmt->get_result()->fetch_assoc();
     $stmt->close();
+
+    $tests_this_week = $test_info['tests_this_week'] ?? 0;
+    $last_test_time = $test_info['last_test_time'];
+
+    // 2. Nếu chưa từng làm lại hoặc đã qua 7 ngày -> Reset bộ đếm về 0
+    if (!$last_test_time || strtotime($last_test_time) <= strtotime('-7 days')) {
+        $tests_this_week = 0; 
+        // Thời gian sẽ được set mới khi user thực sự bắt đầu lượt làm đầu tiên của tuần
+    }
+
+    // 3. Kiểm tra giới hạn (Tối đa 2 lần/tuần)
+    if ($tests_this_week < 2) {
+        $tests_this_week++; // Tăng số lượt đã sử dụng
+        
+        // Nếu đây là lượt làm lại đầu tiên trong chu kỳ 7 ngày, lưu lại mốc thời gian
+        if ($tests_this_week == 1) {
+            $last_test_time = date('Y-m-d H:i:s');
+            $conn->query("UPDATE users SET has_taken_test = 0, tests_this_week = 1, last_test_time = '$last_test_time' WHERE id = $user_id");
+        } else {
+            // Lượt thứ 2, chỉ tăng biến đếm, giữ nguyên mốc thời gian bắt đầu
+            $conn->query("UPDATE users SET has_taken_test = 0, tests_this_week = $tests_this_week WHERE id = $user_id");
+        }
+        
+        header("Location: index.php");
+        exit();
+    } else {
+        // 4. Nếu đã hết lượt, bật cảnh báo và đẩy về lại Profile
+        echo "<script>
+                alert('Bạn đã dùng hết lượt làm bài kiểm tra trong tuần này (Tối đa 2 lần/tuần để tránh quá tải dữ liệu). Vui lòng thử lại vào tuần sau nhé!'); 
+                window.location.href='profile.php';
+              </script>";
+        exit();
+    }
 }
 
 // Xử lý AJAX yêu cầu làm bài test (Gán session bảo mật)
