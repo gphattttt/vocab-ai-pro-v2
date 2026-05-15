@@ -30,16 +30,14 @@ if (!isset($_SESSION['user_id'])) {
             overflow-x: hidden; 
         }
 
-        /* --- LAYOUT OPTIMIZATION --- */
         .main-content { 
-            padding: 80px 20px 40px 20px; /* Thêm padding top để không bị đè bởi nav button */
+            padding: 80px 20px 40px 20px;
             max-width: 800px; 
             margin: 0 auto; 
             min-height: 100vh; 
             box-sizing: border-box;
         }
 
-        /* --- AI STATUS BADGE --- */
         .status-badge {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 6px 14px; border-radius: 20px; font-size: 0.75rem;
@@ -50,7 +48,6 @@ if (!isset($_SESSION['user_id'])) {
         .status-online { background: var(--accent); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
         .status-offline { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
 
-        /* --- RESPONSIVE SEARCH BAR --- */
         .search-container { 
             position: relative; 
             margin-bottom: 30px; 
@@ -82,10 +79,9 @@ if (!isset($_SESSION['user_id'])) {
             cursor: pointer; 
             transition: 0.3s;
             font-size: 1rem;
-            width: 100%; /* Mặc định full width trên mobile */
+            width: 100%;
         }
 
-        /* Desktop: Nút nằm trong input */
         @media (min-width: 600px) {
             .search-container { flex-direction: row; gap: 0; }
             .btn-search { 
@@ -95,7 +91,6 @@ if (!isset($_SESSION['user_id'])) {
             input#wordSearch { padding-right: 120px; }
         }
 
-        /* --- RESULT CARD --- */
         .result-card {
             background: white; 
             padding: 30px; 
@@ -147,20 +142,47 @@ if (!isset($_SESSION['user_id'])) {
             line-height: 1.6;
         }
 
+        /* Synonyms & Antonyms UI */
+        .pair-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        @media (min-width: 600px) {
+            .pair-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .pair-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+        .pair-title {
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .pair-content {
+            font-weight: 600;
+            color: var(--primary);
+            line-height: 1.4;
+            font-size: 0.95rem;
+        }
+
         .btn-save {
             width: 100%; padding: 18px; border-radius: 16px; border: none;
             background: var(--primary); color: white; font-weight: 800; font-size: 1rem;
             cursor: pointer; transition: 0.3s var(--spring);
         }
 
-        /* --- DEBUGGER --- */
         #debuggerArea {
             display: none; background: #0f172a; color: #38bdf8; padding: 20px;
             border-radius: 18px; margin-top: 30px; font-family: 'Courier New', monospace;
             font-size: 0.75rem; line-height: 1.4; border: 2px solid #1e293b; overflow-x: auto;
         }
 
-        /* --- TOAST --- */
         #saveToast {
             position: fixed; bottom: 20px; left: 20px; right: 20px;
             background: white; padding: 12px 20px; border-radius: 15px;
@@ -209,6 +231,18 @@ if (!isset($_SESSION['user_id'])) {
             </div>
 
             <div id="displayEx" class="example-box">"Example sentence..."</div>
+
+            <!-- Synonyms / Antonyms -->
+            <div class="pair-grid">
+                <div class="pair-card">
+                    <div class="pair-title">Synonyms</div>
+                    <div id="displaySyn" class="pair-content">...</div>
+                </div>
+                <div class="pair-card">
+                    <div class="pair-title">Antonyms</div>
+                    <div id="displayAnt" class="pair-content">...</div>
+                </div>
+            </div>
 
             <button id="saveBtn" class="btn-save" onclick="saveToVault()">Lưu vào kho từ vựng +</button>
         </div>
@@ -286,6 +320,10 @@ if (!isset($_SESSION['user_id'])) {
         document.getElementById('displayVi').innerText = activeWordData.definition_vi;
         document.getElementById('displayEn').innerText = activeWordData.definition_en;
         document.getElementById('displayEx').innerText = `"${activeWordData.example_sentence}"`;
+
+        document.getElementById('displaySyn').innerText = activeWordData.synonyms || "Không có";
+        document.getElementById('displayAnt').innerText = activeWordData.antonyms || "Không có";
+
         document.getElementById('resultCard').style.display = "block";
         
         const saveBtn = document.getElementById('saveBtn');
@@ -302,7 +340,10 @@ if (!isset($_SESSION['user_id'])) {
         saveBtn.innerText = "Đang lưu...";
         
         const formData = new FormData();
+
         Object.keys(activeWordData).forEach(key => formData.append(key, activeWordData[key]));
+        formData.append('synonyms', activeWordData.synonyms || '');
+        formData.append('antonyms', activeWordData.antonyms || '');
         
         try {
             const res = await fetch('save.php', { method: 'POST', body: formData });

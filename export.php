@@ -7,7 +7,9 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-$type = $_GET['type'] ?? 'csv';
+
+// Accept both "type" and "format"
+$type = $_GET['type'] ?? ($_GET['format'] ?? 'csv');
 
 // Fetch all words for the user
 $sql = "SELECT v.*, c.name AS category_name 
@@ -25,11 +27,7 @@ if ($type === 'csv') {
     header('Content-Disposition: attachment; filename="' . $filename . '.csv"');
     
     $output = fopen('php://output', 'w');
-    
-    // Add UTF-8 BOM for Excel to display Vietnamese characters correctly
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-    
-    // Column Headers
     fputcsv($output, ['Word', 'IPA', 'Form', 'Level', 'English Definition', 'Vietnamese Definition', 'Example Sentence', 'Category']);
     
     while ($row = $result->fetch_assoc()) {
@@ -48,12 +46,14 @@ if ($type === 'csv') {
     exit();
 }
 
-// --- DOCX (HTML-to-Word) EXPORT LOGIC ---
+// --- DOCX EXPORT LOGIC ---
 if ($type === 'docx') {
     header("Content-type: application/vnd.ms-word");
     header("Content-Disposition: attachment; filename=\"" . $filename . ".doc\"");
     ?>
-    <html xmlns:office="urn:schemas-microsoft-com:office:office" xmlns:word="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <html xmlns:office="urn:schemas-microsoft-com:office:office"
+          xmlns:word="urn:schemas-microsoft-com:office:word"
+          xmlns="http://www.w3.org/TR/REC-html40">
     <head><meta charset="utf-8"></head>
     <body>
         <h1>My Vocabulary Vault</h1>
@@ -81,4 +81,6 @@ if ($type === 'docx') {
     <?php
     exit();
 }
+
+die("Invalid export type");
 ?>
