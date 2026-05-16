@@ -3,3 +3,5 @@ vendor/
 db.php
 login.php
 venv/
+
+__pycache__/
