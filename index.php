@@ -9,43 +9,64 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// 1. LẤY TOÀN BỘ THÔNG TIN CẦN THIẾT CỦA USER TỪ ĐẦU
+$stmt = $conn->prepare("SELECT has_taken_test, tests_this_week, last_test_time FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$test_info = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+// Gán biến để dùng chung cho cả Logic Retake và HTML bên dưới
+$has_taken_test  = $test_info['has_taken_test'] ?? 0;
+$tests_this_week = $test_info['tests_this_week'] ?? 0;
+$last_test_time  = $test_info['last_test_time'];
+
 // --- LOGIC LÀM LẠI BÀI KIỂM TRA (RETAKE) GIỚI HẠN 2 LẦN/TUẦN ---
 if (isset($_GET['retake'])) {
-    // 1. Lấy thông tin làm bài của user
-    $stmt = $conn->prepare("SELECT tests_this_week, last_test_time FROM users WHERE id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $test_info = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    $tests_this_week = $test_info['tests_this_week'] ?? 0;
-    $last_test_time = $test_info['last_test_time'];
-
-    // 2. Nếu chưa từng làm lại hoặc đã qua 7 ngày -> Reset bộ đếm về 0
-    if (!$last_test_time || strtotime($last_test_time) <= strtotime('-7 days')) {
-        $tests_this_week = 0; 
-        // Thời gian sẽ được set mới khi user thực sự bắt đầu lượt làm đầu tiên của tuần
+    
+    // 2. LOGIC RESET THEO "TUẦN LỊCH" (Reset vào 0h00 Thứ Hai hàng tuần)
+    $is_new_week = false;
+    if (!$last_test_time) {
+        $is_new_week = true;
+    } else {
+        // Lấy số thứ tự của tuần trong năm (Ví dụ: Tuần thứ 12 của năm 2024)
+        $last_week = date('W', strtotime($last_test_time));
+        $last_year = date('Y', strtotime($last_test_time));
+        $curr_week = date('W');
+        $curr_year = date('Y');
+        
+        // Nếu khác tuần hoặc khác năm -> Đã sang tuần mới
+        if ($curr_week !== $last_week || $curr_year !== $last_year) {
+            $is_new_week = true;
+        }
     }
 
-    // 3. Kiểm tra giới hạn (Tối đa 2 lần/tuần)
+    if ($is_new_week) {
+        $tests_this_week = 0; 
+    }
+
+    // 3. KIỂM TRA GIỚI HẠN VÀ CẬP NHẬT DATABASE
     if ($tests_this_week < 2) {
-        $tests_this_week++; // Tăng số lượt đã sử dụng
+        $tests_this_week++; // Tăng lượt sử dụng
         
-        // Nếu đây là lượt làm lại đầu tiên trong chu kỳ 7 ngày, lưu lại mốc thời gian
+        // Cập nhật lại mốc thời gian nếu là lượt đầu tiên trong tuần
         if ($tests_this_week == 1) {
             $last_test_time = date('Y-m-d H:i:s');
-            $conn->query("UPDATE users SET has_taken_test = 0, tests_this_week = 1, last_test_time = '$last_test_time' WHERE id = $user_id");
-        } else {
-            // Lượt thứ 2, chỉ tăng biến đếm, giữ nguyên mốc thời gian bắt đầu
-            $conn->query("UPDATE users SET has_taken_test = 0, tests_this_week = $tests_this_week WHERE id = $user_id");
         }
+
+        // Dùng Prepared Statement cho lệnh UPDATE để tránh lỗi SQL
+        $update_stmt = $conn->prepare("UPDATE users SET has_taken_test = 0, tests_this_week = ?, last_test_time = ? WHERE id = ?");
+        $update_stmt->bind_param("isi", $tests_this_week, $last_test_time, $user_id);
+        $update_stmt->execute();
+        $update_stmt->close();
         
+        // Chuyển hướng để xóa ?retake trên URL, tránh bị người dùng F5 tải lại (gây trừ lùi 2 lần)
         header("Location: index.php");
         exit();
     } else {
-        // 4. Nếu đã hết lượt, bật cảnh báo và đẩy về lại Profile
+        // 4. NẾU HẾT LƯỢT
         echo "<script>
-                alert('Bạn đã dùng hết lượt làm bài kiểm tra trong tuần này (Tối đa 2 lần/tuần để tránh quá tải dữ liệu). Vui lòng thử lại vào tuần sau nhé!'); 
+                alert('Bạn đã dùng hết lượt làm bài kiểm tra trong tuần này (Tối đa 2 lần/tuần để tránh quá tải dữ liệu). Vui lòng quay lại vào tuần sau nhé!'); 
                 window.location.href='profile.php';
               </script>";
         exit();

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đang bảo trì</title>
+    <style>
+        /* Cấu hình cho toàn bộ trang */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            text-align: center;
+            
+            /* Tạo background gradient */
+            background: linear-gradient(45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            
+            /* Animation cho gradient */
+            animation: gradientAnimation 10s ease infinite;
+        }
+
+        /* Keyframes cho hiệu ứng chuyển động */
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2); /* Tạo lớp mờ phía sau chữ */
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Thông báo</h1>
+        <p>Hiện website đang được bảo trì, xin lỗi mọi người vì sự bất tiện này, mong mọi người thông cảm.</p>
+    </div>
+
+</body>
+</html>
