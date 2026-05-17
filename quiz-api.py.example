@@ -1,0 +1,444 @@
+import os
+import json
+import re
+import random
+import requests
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+# ============================================================
+# QUIZ API RIÊNG CHO quiz.php
+# Chức năng:
+# - Tạo câu quiz cho 1 từ: GET /quiz-sentence
+# - Tạo trọn bộ quiz nhiều câu: POST /generate-quiz
+# - Đọc OpenRouter key từ file .env
+# ============================================================
+
+# Load file .env trong thư mục /var/www/python_api/
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
+# Lấy OpenRouter secret key từ .env
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+# Model OpenRouter đang dùng
+MODEL_NAME = "openai/gpt-oss-120b"
+
+# Port riêng cho Quiz API
+PORT = 5002
+
+# Khởi tạo Flask app
+app = Flask(__name__)
+
+# Cho phép Nginx/PHP gọi API này
+CORS(app)
+
+
+def normalize_word(word: str) -> str:
+    """
+    Chuẩn hóa từ để giảm lỗi plural/variation.
+    Ví dụ:
+    achievements -> achievement
+    studies -> study
+    boxes -> box
+    """
+    word = (word or "").strip().lower()
+    word = re.sub(r"^[^a-zA-Z]+|[^a-zA-Z]+$", "", word)
+
+    irregulars = {
+        "mice": "mouse",
+        "children": "child",
+        "people": "person",
+        "men": "man",
+        "women": "woman",
+        "teeth": "tooth",
+        "feet": "foot",
+        "geese": "goose",
+    }
+
+    if word in irregulars:
+        return irregulars[word]
+
+    if word.endswith("ies") and len(word) > 4:
+        return word[:-3] + "y"
+
+    if word.endswith(("xes", "ses", "shes", "ches", "zes")) and len(word) > 4:
+        return word[:-2]
+
+    if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
+        return word[:-1]
+
+    return word
+
+
+def build_word_pattern(word: str) -> re.Pattern:
+    """
+    Tạo regex để tìm target word và biến thể cơ bản.
+    Backend vẫn tự đục lỗ để tránh AI quên thay bằng _____.
+    """
+    base = re.escape(word)
+    pattern = rf"\b({base}|{base}s|{base}es|{base}ed|{base}ing)\b"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def hide_target_word(sentence: str, target_word: str) -> str:
+    """
+    Đục lỗ target word trong câu.
+    Nếu câu đã có _____ thì giữ nguyên.
+    """
+    if not sentence:
+        return ""
+
+    if "_____" in sentence:
+        return sentence
+
+    pattern = build_word_pattern(target_word)
+    new_sentence = pattern.sub("_____", sentence, count=1)
+
+    if new_sentence == sentence:
+        return f"{sentence} _____"
+
+    return new_sentence
+
+
+def repair_json(text: str):
+    """
+    Cố gắng lấy JSON hợp lệ từ response AI.
+    """
+    if not text:
+        return None
+
+    try:
+        start = text.find("{")
+        end = text.rfind("}")
+
+        if start == -1 or end == -1:
+            return None
+
+        json_str = text[start:end + 1].strip()
+        json_str = re.sub(r"[\x00-\x1F\x7F]", "", json_str)
+
+        return json.loads(json_str)
+    except Exception:
+        return None
+
+
+def call_openrouter(prompt: str, retries: int = 2):
+    """
+    Gọi OpenRouter và retry nếu lỗi.
+    """
+    if not OPENROUTER_API_KEY:
+        return None, "OPENROUTER_API_KEY missing in .env"
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY.strip()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://study4ever.site",
+        "X-Title": "Vocab AI Pro Quiz API",
+    }
+
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.25,
+    }
+
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                data=json.dumps(payload),
+                timeout=30,
+            )
+
+            if response.status_code != 200:
+                last_error = f"OpenRouter HTTP {response.status_code}: {response.text}"
+                print(last_error)
+                continue
+
+            data = response.json()
+            raw_content = data["choices"][0]["message"]["content"]
+            parsed = repair_json(raw_content)
+
+            if parsed:
+                return parsed, None
+
+            last_error = "AI returned invalid JSON"
+            print(last_error)
+
+        except Exception as e:
+            last_error = str(e)
+            print(f"OpenRouter attempt {attempt} failed: {last_error}")
+
+    return None, last_error
+
+
+def fallback_sentence(word: str) -> str:
+    """
+    Tạo câu fallback nếu AI lỗi.
+    """
+    templates = [
+        f"The word {word} is useful in academic writing.",
+        f"Students should understand how to use {word} correctly.",
+        f"This lesson helps you remember the meaning of {word}.",
+        f"A good learner can use {word} in a clear sentence.",
+    ]
+
+    sentence = random.choice(templates)
+    return hide_target_word(sentence, word)
+
+
+def make_fallback_question(word_item: dict) -> dict:
+    """
+    Tạo 1 question fallback từ dữ liệu word.
+    """
+    word = str(word_item.get("word", "")).strip()
+
+    return {
+        "id": word_item.get("id"),
+        "word": word,
+        "sentence": fallback_sentence(word),
+        "source": "fallback",
+    }
+
+
+def sanitize_words(raw_words):
+    """
+    Làm sạch danh sách từ gửi từ quiz.php.
+    Chỉ giữ tối đa 10 từ cho 1 quiz session.
+    """
+    clean_words = []
+
+    if not isinstance(raw_words, list):
+        return clean_words
+
+    for item in raw_words[:10]:
+        if not isinstance(item, dict):
+            continue
+
+        word = str(item.get("word", "")).strip()
+
+        if not word:
+            continue
+
+        if len(word) > 100:
+            continue
+
+        clean_words.append({
+            "id": item.get("id"),
+            "word": word,
+        })
+
+    return clean_words
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """
+    Endpoint kiểm tra API còn sống.
+    Không trả port/model/key để giảm lộ thông tin production.
+    """
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/quiz-sentence", methods=["GET"])
+def quiz_sentence():
+    """
+    Endpoint cũ: tạo 1 câu cho 1 từ.
+    Giữ lại để backward compatible, nhưng quiz.php mới nên dùng /generate-quiz.
+    """
+    word = request.args.get("word", "").strip()
+
+    if not word:
+        return jsonify({
+            "status": "error",
+            "message": "Missing word",
+        }), 400
+
+    prompt = f"""
+Return ONLY a valid JSON object.
+
+Task:
+Create ONE natural English sentence for a vocabulary quiz.
+
+Target word:
+"{word}"
+
+Strict rules:
+1. Use the target word EXACTLY as provided: "{word}".
+2. Do NOT pluralize it.
+3. Do NOT conjugate it.
+4. Do NOT change its word form.
+5. Replace the exact target word with "_____".
+6. The sentence must be natural and useful for vocabulary practice.
+7. Do not include explanations.
+
+JSON format:
+{{
+  "sentence": "..."
+}}
+"""
+
+    result, error = call_openrouter(prompt)
+
+    if result and "sentence" in result:
+        sentence = hide_target_word(str(result["sentence"]).strip(), word)
+
+        return jsonify({
+            "status": "success",
+            "sentence": sentence,
+            "source": "ai",
+        }), 200
+
+    print(f"Fallback used for word '{word}'. Error: {error}")
+
+    return jsonify({
+        "status": "success",
+        "sentence": fallback_sentence(word),
+        "source": "fallback",
+        "warning": error,
+    }), 200
+
+
+@app.route("/generate-quiz", methods=["POST"])
+def generate_quiz():
+    """
+    Endpoint mới: tạo cả bộ quiz nhiều câu trong 1 request.
+
+    Input:
+    {
+      "words": [
+        {"id": 1, "word": "achievement"},
+        {"id": 2, "word": "resilient"}
+      ]
+    }
+
+    Output:
+    {
+      "status": "success",
+      "questions": [
+        {"id": 1, "word": "achievement", "sentence": "His _____ was impressive."}
+      ]
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    words = sanitize_words(data.get("words", []))
+
+    if not words:
+        return jsonify({
+            "status": "error",
+            "message": "No valid words provided",
+        }), 400
+
+    word_lines = []
+    for idx, item in enumerate(words, start=1):
+        word_lines.append(f'{idx}. id={item.get("id")} | word="{item.get("word")}"')
+
+    words_text = "\n".join(word_lines)
+
+    prompt = f"""
+Return ONLY a valid JSON object.
+
+Task:
+Create vocabulary quiz sentences for these target words.
+
+Target words:
+{words_text}
+
+Strict rules:
+1. Create exactly {len(words)} quiz items.
+2. For each item, use the target word EXACTLY as provided.
+3. Do NOT pluralize any target word.
+4. Do NOT conjugate any target word.
+5. Do NOT change the word form.
+6. Replace the exact target word with "_____".
+7. Each sentence must be natural, clear, and useful for vocabulary practice.
+8. Do not include explanations.
+9. Keep the same id and word in the output.
+
+JSON format:
+{{
+  "questions": [
+    {{
+      "id": 1,
+      "word": "example",
+      "sentence": "This is an _____ sentence."
+    }}
+  ]
+}}
+"""
+
+    result, error = call_openrouter(prompt)
+
+    questions = []
+
+    if result and isinstance(result.get("questions"), list):
+        # Tạo map để kiểm tra AI trả đúng từ không
+        expected_by_normalized = {
+            normalize_word(item["word"]): item
+            for item in words
+        }
+
+        used_ids = set()
+
+        for q in result["questions"]:
+            if not isinstance(q, dict):
+                continue
+
+            ai_word = str(q.get("word", "")).strip()
+            normalized_ai_word = normalize_word(ai_word)
+
+            # Nếu AI trả word không match thì bỏ qua để fallback xử lý
+            if normalized_ai_word not in expected_by_normalized:
+                continue
+
+            expected_item = expected_by_normalized[normalized_ai_word]
+            expected_word = expected_item["word"]
+            expected_id = expected_item["id"]
+
+            if expected_id in used_ids:
+                continue
+
+            sentence = str(q.get("sentence", "")).strip()
+
+            if not sentence:
+                continue
+
+            questions.append({
+                "id": expected_id,
+                "word": expected_word,
+                "sentence": hide_target_word(sentence, expected_word),
+                "source": "ai",
+            })
+
+            used_ids.add(expected_id)
+
+    # Fallback cho những từ AI thiếu hoặc trả sai
+    existing_ids = {q["id"] for q in questions}
+
+    for item in words:
+        if item["id"] not in existing_ids:
+            questions.append(make_fallback_question(item))
+
+    # Giữ đúng thứ tự như input ban đầu
+    order = {item["id"]: index for index, item in enumerate(words)}
+    questions.sort(key=lambda q: order.get(q["id"], 999))
+
+    response = {
+        "status": "success",
+        "questions": questions,
+        "count": len(questions),
+    }
+
+    if error:
+        response["warning"] = error
+
+    return jsonify(response), 200
+
+
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=PORT, debug=False)
