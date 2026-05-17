@@ -169,129 +169,257 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             <pre id="debugRaw" style="background:#1e293b; padding:15px; border-radius:10px; margin-top:10px; white-space: pre-wrap; font-size: 0.75rem; color: #94a3b8;"></pre>
         </div>
     </div>
-
 <script>
-    const API_URL = '/api';
-    let allWords = []; // Lưu toàn bộ kho từ để làm đáp án nhiễu
+    // Frontend không gọi thẳng Flask nữa.
+    // Tất cả request tạo quiz sẽ đi qua quiz_proxy.php để kiểm tra session + quota.
+    let allWords = [];
     let quizWords = [];
+    let generatedQuestions = [];
     let currentIdx = 0;
     let score = 0;
+
     const TOTAL_Q = 10;
 
-    // Danh sách từ vựng dự phòng nếu kho từ của user có quá ít từ (< 4 từ)
-    const fallbackVocab = ['resilient', 'ubiquitous', 'serendipity', 'ephemeral', 'eloquent', 'aesthetic', 'diligent', 'meticulous', 'inevitable', 'ambiguous'];
+    // Danh sách từ dự phòng nếu user có ít hơn 4 từ để làm đáp án nhiễu
+    const fallbackVocab = [
+        'resilient', 'ubiquitous', 'serendipity', 'ephemeral',
+        'eloquent', 'aesthetic', 'diligent', 'meticulous',
+        'inevitable', 'ambiguous'
+    ];
+
+    // Khi trang load xong thì bắt đầu kiểm tra dữ liệu và tạo quiz
+    document.addEventListener('DOMContentLoaded', () => {
+        checkAI();
+    });
 
     async function checkAI() {
         const dot = document.getElementById('statusDot');
         const text = document.getElementById('statusText');
+
         try {
-            const res = await fetch(`${API_URL}/health`);
-            if (res.ok) {
-                dot.className = "status-dot status-online";
-                text.innerText = "AI Engine: Sẵn sàng";
-                loadQuizData();
-            } else { throw new Error(); }
+            // Không gọi /quiz-api/health nữa.
+            // Chỉ cần kiểm tra fetch_board.php để chắc user lấy được dữ liệu.
+            const res = await fetch('fetch_board.php');
+
+            if (!res.ok) {
+                throw new Error('Không thể kết nối dữ liệu từ vựng');
+            }
+
+            dot.className = "status-dot status-online";
+            text.innerText = "Quiz Engine: Sẵn sàng";
+
+            loadQuizData();
         } catch (e) {
             dot.className = "status-dot status-offline";
-            text.innerText = "AI Engine: Mất kết nối";
-            showDebugger({message: "Lỗi kết nối tới Flask Backend", raw: e});
+            text.innerText = "Quiz Engine: Mất kết nối";
+            showDebugger({
+                message: "Lỗi kết nối tới hệ thống quiz",
+                raw: e.message || e
+            });
         }
     }
-    checkAI();
 
     async function loadQuizData() {
         try {
+            // Lấy toàn bộ từ vựng của user từ database
             const res = await fetch('fetch_board.php');
+
+            if (!res.ok) {
+                throw new Error('Không thể lấy từ vựng từ Database');
+            }
+
             allWords = await res.json();
-            
-            // Trộn và lấy ngẫu nhiên câu hỏi
-            quizWords = [...allWords].sort(() => 0.5 - Math.random()).slice(0, TOTAL_Q);
-            
+
+            // Trộn từ và lấy tối đa 10 từ cho 1 quiz session
+            quizWords = [...allWords]
+                .sort(() => 0.5 - Math.random())
+                .slice(0, TOTAL_Q);
+
             if (quizWords.length === 0) {
-                document.getElementById('loader').innerHTML = "<p>Kho từ vựng trống. Hãy thêm từ trước khi làm trắc nghiệm!</p>";
+                document.getElementById('loader').innerHTML =
+                    "<p>Kho từ vựng trống. Hãy thêm từ trước khi làm trắc nghiệm!</p>";
                 return;
             }
-            loadNextQuestion();
+
+            // Gọi quiz_proxy.php đúng 1 lần để tạo toàn bộ câu hỏi
+            await generateQuizSession();
+
         } catch (e) {
-            showDebugger({message: "Không thể lấy từ vựng từ Database", raw: e});
+            showDebugger({
+                message: "Không thể lấy từ vựng từ Database",
+                raw: e.message || e
+            });
         }
     }
 
-    async function loadNextQuestion() {
-        if (currentIdx >= quizWords.length) {
+    async function generateQuizSession() {
+        try {
+            document.getElementById('loader').style.display = "block";
+            document.getElementById('quizContent').style.display = "none";
+            document.getElementById('resultScreen').style.display = "none";
+
+            document.getElementById('loader').innerHTML =
+                "<p style='font-weight:700; color:var(--text-muted);'>AI đang tạo bộ câu hỏi cho bạn...</p>";
+
+            // Chỉ gửi dữ liệu cần thiết sang proxy
+            const payload = {
+                words: quizWords.map(w => ({
+                    id: w.id,
+                    word: w.word
+                }))
+            };
+
+            // Gọi proxy bằng POST.
+            // Đây là điểm sửa chính để tránh lỗi "Method not allowed".
+            const res = await fetch('quiz_proxy.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || data.status === 'error') {
+                throw data;
+            }
+
+            if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+                throw {
+                    message: "Quiz API không trả về câu hỏi hợp lệ",
+                    raw: data
+                };
+            }
+
+            generatedQuestions = data.questions;
+
+            // Bắt đầu câu hỏi đầu tiên
+            currentIdx = 0;
+            score = 0;
+
+            loadNextQuestion();
+
+        } catch (e) {
+            document.getElementById('loader').style.display = "none";
+            showDebugger({
+                message: e.message || "Không thể tạo quiz session",
+                raw: e
+            });
+        }
+    }
+
+    function loadNextQuestion() {
+        if (currentIdx >= generatedQuestions.length) {
             showResults();
             return;
         }
 
-        const wordObj = quizWords[currentIdx];
-        
+        const question = generatedQuestions[currentIdx];
+
+        // Tìm word object gốc trong database để lấy nghĩa VI, word_form, id cho SRS
+        const wordObj = quizWords.find(w => String(w.id) === String(question.id)) || {
+            id: question.id,
+            word: question.word,
+            definition_vi: '',
+            word_form: ''
+        };
+
         // Reset UI cho câu hỏi mới
-        document.getElementById('loader').style.display = "block";
-        document.getElementById('quizContent').style.display = "none";
+        document.getElementById('loader').style.display = "none";
+        document.getElementById('quizContent').style.display = "block";
         document.getElementById('feedbackBox').style.display = "none";
         document.getElementById('nextBtn').style.display = "none";
-        
-        try {
-            const res = await fetch(`${API_URL}/quiz-sentence?word=${encodeURIComponent(wordObj.word)}`);
-            const data = await res.json();
-            if (!res.ok) throw data;
 
-            let sentence = data.sentence;
+        let sentence = question.sentence || '';
 
-            // Đục lỗ nếu AI chưa đục
-            const regex = new RegExp(wordObj.word, 'gi'); 
-            if (!sentence.includes('_____')) {
-                sentence = sentence.replace(regex, '_____');
-            }
-
-            // Gợi ý nghĩa tiếng Việt
-            const formText = wordObj.word_form ? `(${wordObj.word_form})` : '';
-            document.getElementById('wordHint').innerText = `Gợi ý: ${wordObj.definition_vi} ${formText}`;
-
-            // Hiển thị câu hỏi
-            document.getElementById('sentenceText').innerHTML = sentence.replace('_____', '<b>_____</b>');
-            document.getElementById('questionCounter').innerText = `Câu hỏi ${currentIdx + 1} / ${quizWords.length}`;
-            document.getElementById('progressBar').style.width = `${(currentIdx / quizWords.length) * 100}%`;
-            
-            // --- TẠO ĐÁP ÁN TRẮC NGHIỆM ---
-            // Lọc bỏ đáp án đúng ra khỏi danh sách nhiễu
-            let distractors = allWords.filter(w => w.word.toLowerCase() !== wordObj.word.toLowerCase());
-            // Lấy ngẫu nhiên 3 từ gây nhiễu
-            distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
-            
-            let options = [{ word: wordObj.word, isCorrect: true }];
-            distractors.forEach(d => options.push({ word: d.word, isCorrect: false }));
-            
-            // Nếu người dùng có ít hơn 4 từ vựng trong kho, bù bằng fallbackVocab
-            while(options.length < 4) {
-                let f = fallbackVocab[Math.floor(Math.random() * fallbackVocab.length)];
-                if (!options.find(o => o.word.toLowerCase() === f.toLowerCase())) {
-                    options.push({ word: f, isCorrect: false });
-                }
-            }
-
-            // Trộn ngẫu nhiên 4 đáp án (A,B,C,D)
-            options = options.sort(() => 0.5 - Math.random());
-
-            // Render nút bấm
-            let optionsHtml = '';
-            options.forEach(opt => {
-                optionsHtml += `<button class="option-btn" onclick="checkChoice(this, ${opt.isCorrect}, '${wordObj.word}')">${opt.word}</button>`;
-            });
-            document.getElementById('inputArea').innerHTML = optionsHtml;
-
-            document.getElementById('loader').style.display = "none";
-            document.getElementById('quizContent').style.display = "block";
-
-        } catch (e) {
-            showDebugger({message: `Lỗi AI khi tạo câu hỏi cho từ "${wordObj.word}"`, raw: e});
+        // Nếu vì lý do nào đó sentence chưa có blank thì tự thay từ gốc bằng _____
+        if (!sentence.includes('_____')) {
+            const regex = new RegExp(`\\b${escapeRegExp(question.word)}\\b`, 'gi');
+            sentence = sentence.replace(regex, '_____');
         }
+
+        // Nếu vẫn không có blank thì thêm blank fallback để UI không chết
+        if (!sentence.includes('_____')) {
+            sentence = sentence + ' _____';
+        }
+
+        const formText = wordObj.word_form ? `(${wordObj.word_form})` : '';
+        document.getElementById('wordHint').innerText =
+            `Gợi ý: ${wordObj.definition_vi || 'N/A'} ${formText}`;
+
+        document.getElementById('sentenceText').innerHTML =
+            sentence.replace('_____', '<b>_____</b>');
+
+        document.getElementById('questionCounter').innerText =
+            `Câu hỏi ${currentIdx + 1} / ${generatedQuestions.length}`;
+
+        document.getElementById('progressBar').style.width =
+            `${(currentIdx / generatedQuestions.length) * 100}%`;
+
+        renderOptions(wordObj);
     }
 
-    // Xử lý khi click vào đáp án
+    function renderOptions(wordObj) {
+        // Lọc bỏ đáp án đúng khỏi danh sách nhiễu
+        let distractors = allWords.filter(w =>
+            w.word && w.word.toLowerCase() !== wordObj.word.toLowerCase()
+        );
+
+        // Lấy 3 từ gây nhiễu ngẫu nhiên
+        distractors = distractors
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+
+        let options = [
+            {
+                word: wordObj.word,
+                isCorrect: true
+            }
+        ];
+
+        distractors.forEach(d => {
+            options.push({
+                word: d.word,
+                isCorrect: false
+            });
+        });
+
+        // Nếu kho từ ít hơn 4 từ, bù bằng fallback
+        while (options.length < 4) {
+            let f = fallbackVocab[Math.floor(Math.random() * fallbackVocab.length)];
+
+            if (!options.find(o => o.word.toLowerCase() === f.toLowerCase())) {
+                options.push({
+                    word: f,
+                    isCorrect: false
+                });
+            }
+        }
+
+        // Trộn đáp án
+        options = options.sort(() => 0.5 - Math.random());
+
+        let optionsHtml = '';
+
+        options.forEach(opt => {
+            optionsHtml += `
+                <button 
+                    class="option-btn" 
+                    onclick="checkChoice(this, ${opt.isCorrect}, '${escapeHtml(wordObj.word)}')"
+                >
+                    ${escapeHtml(opt.word)}
+                </button>
+            `;
+        });
+
+        document.getElementById('inputArea').innerHTML = optionsHtml;
+    }
+
     function checkChoice(buttonElement, isCorrect, correctWord) {
-        // Vô hiệu hóa tất cả các nút ngay lập tức để tránh bấm 2 lần
         const allButtons = document.querySelectorAll('.option-btn');
+
+        // Chặn bấm nhiều lần
         allButtons.forEach(btn => btn.disabled = true);
 
         const feedback = document.getElementById('feedbackBox');
@@ -305,8 +433,7 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
             buttonElement.classList.add('opt-wrong');
             feedback.className = "feedback wrong";
             feedback.innerText = `Chưa đúng. Đáp án chính xác là: ${correctWord}`;
-            
-            // Đánh dấu xanh cho nút đúng để người dùng biết
+
             allButtons.forEach(btn => {
                 if (btn.innerText.toLowerCase() === correctWord.toLowerCase()) {
                     btn.classList.add('opt-correct');
@@ -317,11 +444,17 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         feedback.style.display = "block";
         document.getElementById('nextBtn').style.display = "block";
 
-        // Cập nhật SRS vào Database
+        // Cập nhật SRS cho từ hiện tại
+        const currentQuestion = generatedQuestions[currentIdx];
         const srsData = new FormData();
-        srsData.append('id', quizWords[currentIdx].id);
-        srsData.append('is_correct', isCorrect);
-        fetch('update_srs.php', { method: 'POST', body: srsData });
+
+        srsData.append('id', currentQuestion.id);
+        srsData.append('is_correct', isCorrect ? '1' : '0');
+
+        fetch('update_srs.php', {
+            method: 'POST',
+            body: srsData
+        });
 
         currentIdx++;
     }
@@ -331,31 +464,69 @@ if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit(); }
         document.getElementById('resultScreen').style.display = "block";
         document.getElementById('progressBar').style.width = "100%";
 
-        const percent = Math.round((score / quizWords.length) * 100);
+        const percent = Math.round((score / generatedQuestions.length) * 100);
+
         document.getElementById('finalScore').innerText = percent + "%";
-        
+
         if (percent === 100) {
-            document.getElementById('resultMsg').innerText = "Thật không thể tin nổi! Bạn đã thuộc lòng toàn bộ.";
+            document.getElementById('resultMsg').innerText =
+                "Thật không thể tin nổi! Bạn đã thuộc lòng toàn bộ.";
+
             document.getElementById('xpAlert').style.display = "block";
-            
+
             const fd = new FormData();
             fd.append('amount', 50);
-            fetch('reward_xp.php', { method: 'POST', body: fd });
-            
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#10b981', '#1e293b'] });
+
+            fetch('reward_xp.php', {
+                method: 'POST',
+                body: fd
+            });
+
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#10b981', '#1e293b']
+            });
+
         } else if (percent >= 70) {
-            document.getElementById('resultMsg').innerText = "Làm tốt lắm! Bạn đang tiến bộ rất nhanh.";
+            document.getElementById('resultMsg').innerText =
+                "Làm tốt lắm! Bạn đang tiến bộ rất nhanh.";
         } else {
-            document.getElementById('resultMsg').innerText = "Đừng nản lòng, luyện tập thêm để ghi nhớ sâu hơn nhé!";
+            document.getElementById('resultMsg').innerText =
+                "Đừng nản lòng, luyện tập thêm để ghi nhớ sâu hơn nhé!";
         }
     }
 
     function showDebugger(err) {
         const area = document.getElementById('debuggerArea');
+
         area.style.display = "block";
-        document.getElementById('debugContent').innerText = err.message;
-        document.getElementById('debugRaw').innerText = typeof err.raw === 'object' ? JSON.stringify(err.raw, null, 2) : err.raw;
+
+        document.getElementById('debugContent').innerText =
+            err.message || "Unknown error";
+
+        document.getElementById('debugRaw').innerText =
+            typeof err.raw === 'object'
+                ? JSON.stringify(err.raw, null, 2)
+                : JSON.stringify(err, null, 2);
+    }
+
+    // Escape regex để tránh lỗi nếu từ có ký tự đặc biệt
+    function escapeRegExp(string) {
+        return String(string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Escape HTML để tránh lỗi khi render từ vào button
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 </script>
+
 </body>
 </html>
