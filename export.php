@@ -1,4 +1,19 @@
 <?php
+// =========================================================
+// export.php
+// Vocab AI Pro - Export Vocabulary
+//
+// Chức năng:
+// - Xuất CSV
+// - Xuất DOCX
+// - Group từ vựng theo category
+// - Dịch word_form sang tiếng Việt khi export
+//
+// Lưu ý:
+// - Database vẫn lưu word_form bằng tiếng Anh: noun, verb...
+// - Khi export mới đổi sang tiếng Việt: Danh từ, Động từ...
+// =========================================================
+
 // Nạp file kết nối database
 include 'db.php';
 
@@ -19,13 +34,20 @@ $type = $_GET['type'] ?? ($_GET['format'] ?? 'csv');
 // Tạo tên file export theo ngày hiện tại
 $filename = "Vocab_AI_Pro_" . date('Y-m-d');
 
+// =========================================================
+// QUERY LẤY VOCABULARY
+// =========================================================
+
 // Query lấy toàn bộ từ vựng của user, kèm tên category
+// JOIN thêm c.user_id để tránh lấy nhầm category của user khác
 $sql = "
     SELECT 
         v.*,
         COALESCE(c.name, 'Uncategorized') AS category_name
     FROM vocabularies v
-    LEFT JOIN categories c ON v.category_id = c.id
+    LEFT JOIN categories c 
+        ON v.category_id = c.id 
+        AND c.user_id = v.user_id
     WHERE v.user_id = ?
     ORDER BY 
         CASE WHEN c.name IS NULL THEN 1 ELSE 0 END,
@@ -35,6 +57,10 @@ $sql = "
 
 // Chuẩn bị query để tránh SQL injection
 $stmt = $conn->prepare($sql);
+
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
 
 // Gắn user_id vào query
 $stmt->bind_param("i", $user_id);
@@ -59,16 +85,68 @@ while ($row = $result->fetch_assoc()) {
     $groupedWords[$categoryName][] = $row;
 }
 
+$stmt->close();
+
+// =========================================================
+// HELPER FUNCTIONS
+// =========================================================
+
 /**
  * Hàm làm sạch text trước khi xuất file.
  * Giúp tránh lỗi khi dữ liệu bị null hoặc có ký tự HTML.
  */
 function cleanText($value) {
-    return trim(html_entity_decode(strip_tags((string) ($value ?? '')), ENT_QUOTES, 'UTF-8'));
+    return trim(
+        html_entity_decode(
+            strip_tags((string) ($value ?? '')),
+            ENT_QUOTES,
+            'UTF-8'
+        )
+    );
 }
 
 /**
- * Hàm xuất CSV đẹp hơn:
+ * Chuyển word form từ tiếng Anh sang tiếng Việt khi export.
+ * Database vẫn nên lưu tiếng Anh để dữ liệu thống nhất.
+ */
+function translateWordFormToVi($wordForm) {
+    $form = strtolower(trim((string) ($wordForm ?? '')));
+
+    $map = [
+        'noun' => 'Danh từ',
+        'verb' => 'Động từ',
+        'adjective' => 'Tính từ',
+        'adj' => 'Tính từ',
+        'adverb' => 'Trạng từ',
+        'adv' => 'Trạng từ',
+        'phrasal verb' => 'Cụm động từ',
+        'idiom' => 'Thành ngữ',
+        'collocation' => 'Cụm từ',
+        'phrase' => 'Cụm từ',
+        'unknown' => 'Không rõ'
+    ];
+
+    if ($form === '') {
+        return '';
+    }
+
+    return $map[$form] ?? cleanText($wordForm);
+}
+
+/**
+ * Helper thêm text an toàn vào PHPWord.
+ * Tránh lỗi nếu value bị null.
+ */
+function safeDocText($value) {
+    return cleanText($value);
+}
+
+// =========================================================
+// EXPORT CSV
+// =========================================================
+
+/**
+ * Hàm xuất CSV:
  * - Group theo category
  * - Có tiêu đề category
  * - Có dòng trống giữa các category
@@ -92,7 +170,7 @@ function exportCsvByCategory($groupedWords, $filename) {
     // Duyệt từng category
     foreach ($groupedWords as $categoryName => $words) {
         // Ghi tên category
-        fputcsv($output, ['Category:', $categoryName]);
+        fputcsv($output, ['Category:', cleanText($categoryName)]);
         fputcsv($output, ['Total words:', count($words)]);
 
         // Ghi header cho bảng từ vựng trong category
@@ -111,13 +189,13 @@ function exportCsvByCategory($groupedWords, $filename) {
         // Ghi từng từ vựng
         foreach ($words as $row) {
             fputcsv($output, [
-                cleanText($row['word']),
-                cleanText($row['ipa']),
-                cleanText($row['word_form']),
-                cleanText($row['level']),
-                cleanText($row['definition_en']),
-                cleanText($row['definition_vi']),
-                cleanText($row['example_sentence']),
+                cleanText($row['word'] ?? ''),
+                cleanText($row['ipa'] ?? ''),
+                translateWordFormToVi($row['word_form'] ?? ''),
+                cleanText($row['level'] ?? ''),
+                cleanText($row['definition_en'] ?? ''),
+                cleanText($row['definition_vi'] ?? ''),
+                cleanText($row['example_sentence'] ?? ''),
                 cleanText($row['nuance'] ?? ''),
                 cleanText($row['collocations'] ?? '')
             ]);
@@ -135,18 +213,22 @@ function exportCsvByCategory($groupedWords, $filename) {
     exit();
 }
 
+// =========================================================
+// EXPORT DOCX
+// =========================================================
+
 /**
- * Hàm xuất DOCX thật bằng PHPWord:
+ * Hàm xuất DOCX bằng PHPWord:
  * - File .docx chuẩn
  * - Group từ vựng theo category
- * - Có heading, thống kê, bảng đẹp hơn
+ * - Có heading, thống kê, bảng
  * - Hỗ trợ tiếng Việt bằng UTF-8
  */
 function exportDocxByCategory($groupedWords, $filename) {
     // Nạp Composer autoload để dùng PHPWord
     require_once __DIR__ . '/vendor/autoload.php';
 
-    // Khai báo namespace của PHPWord
+    // Tạo document PHPWord
     $phpWord = new \PhpOffice\PhpWord\PhpWord();
 
     // Thiết lập font mặc định cho toàn bộ document
@@ -214,6 +296,7 @@ function exportDocxByCategory($groupedWords, $filename) {
 
     // Tính tổng số từ
     $totalWords = 0;
+
     foreach ($groupedWords as $words) {
         $totalWords += count($words);
     }
@@ -233,7 +316,9 @@ function exportDocxByCategory($groupedWords, $filename) {
     ]);
 
     foreach ($groupedWords as $categoryName => $words) {
-        $section->addText('• ' . cleanText($categoryName) . ' — ' . count($words) . ' words');
+        $section->addText(
+            '• ' . cleanText($categoryName) . ' — ' . count($words) . ' words'
+        );
     }
 
     // Thêm khoảng cách trước phần bảng
@@ -242,7 +327,10 @@ function exportDocxByCategory($groupedWords, $filename) {
     // Duyệt từng category để tạo bảng riêng
     foreach ($groupedWords as $categoryName => $words) {
         // Thêm heading category
-        $section->addTitle(cleanText($categoryName) . ' (' . count($words) . ' words)', 2);
+        $section->addTitle(
+            cleanText($categoryName) . ' (' . count($words) . ' words)',
+            2
+        );
 
         // Tạo bảng từ vựng
         $table = $section->addTable('VocabTable');
@@ -256,46 +344,88 @@ function exportDocxByCategory($groupedWords, $filename) {
         $table->addCell(1000, $headerCellStyle)->addText('Level', $headerFontStyle);
         $table->addCell(2800, $headerCellStyle)->addText('English Definition', $headerFontStyle);
         $table->addCell(2800, $headerCellStyle)->addText('Vietnamese', $headerFontStyle);
-        $table->addCell(3200, $headerCellStyle)->addText('Example', $headerFontStyle);
+        $table->addCell(3200, $headerCellStyle)->addText('Example / Notes', $headerFontStyle);
 
         // Thêm từng từ vựng vào bảng
         foreach ($words as $row) {
             $table->addRow();
 
-            // Cột Word: in đậm từ vựng, kèm word form
+            // =================================================
+            // Cột Word: từ vựng + word form tiếng Việt
+            // =================================================
+
             $wordCell = $table->addCell(2200, $normalCellStyle);
-            $wordCell->addText(cleanText($row['word']), [
+
+            $wordCell->addText(safeDocText($row['word'] ?? ''), [
                 'bold' => true,
                 'color' => '1E293B'
             ]);
-            $wordCell->addText(cleanText($row['word_form']), [
-                'italic' => true,
-                'size' => 9,
-                'color' => '64748B'
-            ]);
 
+            // Chuyển word form sang tiếng Việt khi export DOCX
+            $wordFormVi = translateWordFormToVi($row['word_form'] ?? '');
+
+            // Chỉ hiển thị word form nếu có dữ liệu
+            if ($wordFormVi !== '') {
+                $wordCell->addText($wordFormVi, [
+                    'italic' => true,
+                    'size' => 9,
+                    'color' => '64748B'
+                ]);
+            }
+
+            // =================================================
             // Cột IPA
-            $table->addCell(1400, $normalCellStyle)->addText(cleanText($row['ipa']));
+            // =================================================
 
+            $table->addCell(1400, $normalCellStyle)->addText(
+                safeDocText($row['ipa'] ?? '')
+            );
+
+            // =================================================
             // Cột level
-            $table->addCell(1000, $normalCellStyle)->addText(cleanText($row['level']), [
-                'bold' => true,
-                'color' => '10B981'
-            ]);
+            // =================================================
 
+            $table->addCell(1000, $normalCellStyle)->addText(
+                safeDocText($row['level'] ?? ''),
+                [
+                    'bold' => true,
+                    'color' => '10B981'
+                ]
+            );
+
+            // =================================================
             // Cột định nghĩa tiếng Anh
-            $table->addCell(2800, $normalCellStyle)->addText(cleanText($row['definition_en']));
+            // =================================================
 
+            $table->addCell(2800, $normalCellStyle)->addText(
+                safeDocText($row['definition_en'] ?? '')
+            );
+
+            // =================================================
             // Cột định nghĩa tiếng Việt
-            $table->addCell(2800, $normalCellStyle)->addText(cleanText($row['definition_vi']));
+            // =================================================
 
-            // Cột ví dụ
+            $table->addCell(2800, $normalCellStyle)->addText(
+                safeDocText($row['definition_vi'] ?? '')
+            );
+
+            // =================================================
+            // Cột ví dụ + nuance + collocations
+            // =================================================
+
             $exampleCell = $table->addCell(3200, $normalCellStyle);
-            $exampleCell->addText(cleanText($row['example_sentence']));
+
+            $exampleSentence = safeDocText($row['example_sentence'] ?? '');
+
+            if ($exampleSentence !== '') {
+                $exampleCell->addText($exampleSentence);
+            }
 
             // Nếu có nuance thì thêm bên dưới example
-            if (!empty($row['nuance'])) {
-                $exampleCell->addText('Nuance: ' . cleanText($row['nuance']), [
+            $nuance = safeDocText($row['nuance'] ?? '');
+
+            if ($nuance !== '') {
+                $exampleCell->addText('Nuance: ' . $nuance, [
                     'italic' => true,
                     'size' => 9,
                     'color' => '64748B'
@@ -303,8 +433,10 @@ function exportDocxByCategory($groupedWords, $filename) {
             }
 
             // Nếu có collocations thì thêm bên dưới nuance
-            if (!empty($row['collocations'])) {
-                $exampleCell->addText('Collocations: ' . cleanText($row['collocations']), [
+            $collocations = safeDocText($row['collocations'] ?? '');
+
+            if ($collocations !== '') {
+                $exampleCell->addText('Collocations: ' . $collocations, [
                     'size' => 9,
                     'color' => '475569'
                 ]);
@@ -330,12 +462,16 @@ function exportDocxByCategory($groupedWords, $filename) {
     exit();
 }
 
+// =========================================================
+// ROUTER EXPORT TYPE
+// =========================================================
+
 // Nếu user chọn CSV thì xuất CSV
 if ($type === 'csv') {
     exportCsvByCategory($groupedWords, $filename);
 }
 
-// Nếu user chọn DOCX thì xuất DOCX thật
+// Nếu user chọn DOCX thì xuất DOCX
 if ($type === 'docx') {
     exportDocxByCategory($groupedWords, $filename);
 }
