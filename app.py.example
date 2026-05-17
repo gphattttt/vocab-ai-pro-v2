@@ -8,8 +8,8 @@ app = Flask(__name__)
 CORS(app)
 
 # --- CẤU HÌNH HỆ THỐNG ---
-OPENROUTER_API_KEY = "MY_SECRET_KEY"
-MODEL_NAME = "openai/gpt-oss-120b"
+OPENROUTER_API_KEY = "YOUR_SECRET_KEY"
+MODEL_NAME = "google/gemini-2.5-flash-lite"
 
 def universal_json_repair(text):
     if not text: return None
@@ -93,28 +93,6 @@ def get_vocab():
     """
     result = ask_gemini_with_retry(prompt)
     return jsonify(result) if result else (jsonify({"error": "AI Engine Error"}), 500)
-
-@app.route('/quiz-sentence', methods=['GET'])
-def quiz_sentence():
-    word = request.args.get('word')
-    if not word: return jsonify({"error": "No word"}), 400
-
-    prompt = f"""
-    Task: Create a natural English sentence for the word '{word}'.
-    Rule: Replace '{word}' or its variations (plural/tense) with '_____'.
-    """
-    result = ask_gemini_with_retry(prompt)
-    if result and 'sentence' in result:
-        sentence = result['sentence']
-        if '_____' not in sentence:
-            pattern_str = rf'\b({re.escape(word)}'
-            if word.lower() == 'mice': pattern_str += '|mouse'
-            elif word.lower() == 'mouse': pattern_str += '|mice'
-            pattern_str += r')\b'
-            sentence = re.sub(pattern_str, '_____', sentence, flags=re.IGNORECASE)
-            result['sentence'] = sentence
-        return jsonify(result)
-    return jsonify({"error": "AI Engine Error"}), 500
 
 @app.route('/extract-vocab', methods=['POST'])
 def extract_vocab():
